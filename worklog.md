@@ -159,3 +159,44 @@ Stage Summary:
 - Schema flexibility: the normalization layer supports both `images[]` (array) and `image_url` (string) column shapes, so future schema changes won't break the UI
 - Note: the `category` column in Supabase holds display labels ("Smartphones", "Accessoires") rather than IDs ("smartphones"), so category-bar filtering won't match yet — this can be fixed either by normalizing categories client-side or by aligning the column values in a follow-up task
 
+---
+Task ID: 5
+Agent: Main Agent
+Task: Wire VendorAddProduct to Supabase — insert real products on submit
+
+Work Log:
+- Added `import { supabase } from '@/lib/supabaseClient';` to `src/components/wabuz/VendorAddProduct.tsx`
+- Added `Loader2` to the lucide-react imports for the submitting spinner
+- Added a `DEFAULT_STORE_ID` constant = `'a1b2c3d4-1234-5678-9101-e11213141516'` (the demo store row created in Supabase)
+- Added a `submitting` boolean state to disable the publish button during the network call
+- Converted `handleSubmit` to `async`:
+  - Validates required fields (name, price, category, description) — toast error if missing
+  - Sets `submitting = true`
+  - Resolves the category **display name** from the selected category ID via `CATEGORIES.find(...)?.name` (Supabase stores labels like "Smartphones" / "Mode", not IDs like "smartphones")
+  - Picks the first uploaded image for `image_url`, with a neutral placeholder fallback
+  - Calls:
+    ```ts
+    const { data, error } = await supabase
+      .from('products')
+      .insert([{ name, description, price, image_url, category: categoryName, store_id: DEFAULT_STORE_ID }])
+      .select();
+    ```
+  - On error: `console.error` + destructive toast with `error.message`, keeps the form intact so the vendor can retry
+  - On success: also pushes the new product into the local Zustand store (`addVendorProduct`) for instant feedback on the vendor Products page, uses the returned row's `id` when available, shows the success animation screen, and fires a success toast "Produit ajouté avec succès dans la base de données !"
+- Updated the publish button:
+  - Disabled when `submitting` (in addition to the existing required-field checks)
+  - Shows `<Loader2 className="animate-spin" />` + "Publication en cours…" while submitting, "Publier le produit" otherwise
+- Verification
+  - ESLint on `VendorAddProduct.tsx`: 0 warnings, 0 errors
+  - TypeScript: no errors in `src/`
+  - Direct Supabase test (`scripts/test_vendor_add_product.mjs`): inserted "Sac à Dos Urbain Test" (12 000 FCFA, Mode, image Unsplash) with the exact same payload `handleSubmit` sends → insert OK, returned row has a real UUID id and a `created_at` timestamp; product count went from 2 → 3
+  - End-to-end browser check: after the insert, reloading `http://localhost:3000/` shows the new "Sac à Dos Urbain Test — 12 000 FCFA" card on the client home page automatically (alongside the original iPhone 13 Pro and Écouteurs Bluetooth), proving the full loop Vendor → Supabase → Client works
+  - Screenshot saved at `/home/z/my-project/download/supabase-home-with-new-product.png`
+
+Stage Summary:
+- Vendors can now publish real products into Supabase directly from the WABUZ UI
+- The insert matches the existing Supabase schema exactly (columns: name, description, price, image_url, category, store_id)
+- UX is preserved during the network call: button shows a spinner + "Publication en cours…", errors surface as toasts, success shows the existing celebration screen
+- A new product added by a vendor is immediately visible to clients on the home page (because `ClientHome.tsx` already fetches from Supabase on mount, Task 4)
+- The demo store_id is hard-coded for now — once Supabase Auth is wired in, this should be replaced by the authenticated vendor's store_id
+

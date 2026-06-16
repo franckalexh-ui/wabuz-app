@@ -3,9 +3,13 @@
 import { useAppStore } from '@/lib/store';
 import { CATEGORIES, formatPrice } from '@/lib/data';
 import { useState } from 'react';
-import { Camera, Link2, X, CheckCircle2, ArrowLeft, Sparkles, ImagePlus } from 'lucide-react';
+import { Camera, Link2, X, CheckCircle2, ArrowLeft, Sparkles, ImagePlus, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabaseClient';
+
+// Default store ID for the demo — matches the row created in Supabase
+const DEFAULT_STORE_ID = 'a1b2c3d4-1234-5678-9101-e11213141516';
 
 // Suggested images per category
 const SUGGESTED_IMAGES: Record<string, string[]> = {
@@ -53,6 +57,7 @@ export function VendorAddProduct() {
   const [images, setImages] = useState<string[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [createdProductName, setCreatedProductName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleAddImage = () => {
     if (imageUrl.trim() && !images.includes(imageUrl.trim())) {
@@ -71,7 +76,7 @@ export function VendorAddProduct() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!name || !price || !category || !description) {
       toast({
         title: 'Champs requis',
@@ -81,13 +86,54 @@ export function VendorAddProduct() {
       return;
     }
 
+    setSubmitting(true);
+
+    // Resolve category display name (Supabase stores labels like "Smartphones", not IDs like "smartphones")
+    const categoryName =
+      CATEGORIES.find((c) => c.id === category)?.name ?? category;
+
+    // Use the first uploaded image, fallback to a neutral placeholder
+    const primaryImage =
+      images[0] ??
+      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop';
+
+    const priceNum = parseInt(price, 10);
+
+    // ── Insert into Supabase ────────────────────────────────────
+    const { data, error } = await supabase
+      .from('products')
+      .insert([
+        {
+          name: name,
+          description: description,
+          price: priceNum,
+          image_url: primaryImage,
+          category: categoryName,
+          store_id: DEFAULT_STORE_ID, // Demo store — on associe le produit à la boutique factice
+        },
+      ])
+      .select();
+
+    if (error) {
+      console.error('Supabase insert error:', error);
+      toast({
+        title: "Erreur lors de l'ajout du produit",
+        description: error.message,
+        variant: 'destructive',
+      });
+      setSubmitting(false);
+      return;
+    }
+
+    // ── Success — also push into local store for instant feedback ──
+    const insertedRow = Array.isArray(data) && data.length > 0 ? data[0] : null;
     const product = {
-      id: `p_new_${Date.now()}`,
+      id: insertedRow?.id ? String(insertedRow.id) : `p_new_${Date.now()}`,
       name,
-      price: parseInt(price, 10),
+      price: priceNum,
       category,
       description,
-      images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop'],
+      images: images.length > 0 ? images : [primaryImage],
       vendorId: 'v_current',
       vendorName: vendorStoreName || 'Ma Boutique',
       vendorRating: 5.0,
@@ -100,6 +146,12 @@ export function VendorAddProduct() {
     addVendorProduct(product);
     setCreatedProductName(name);
     setShowSuccess(true);
+    setSubmitting(false);
+
+    toast({
+      title: 'Produit ajouté avec succès dans la base de données !',
+      description: `${name} est maintenant visible sur WABUZ`,
+    });
   };
 
   // Success State
@@ -334,10 +386,17 @@ export function VendorAddProduct() {
       <div className="px-4 mt-6">
         <Button
           onClick={handleSubmit}
-          disabled={!name || !price || !category || !description}
+          disabled={!name || !price || !category || !description || submitting}
           className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50 transition-all active:scale-[0.98]"
         >
-          Publier le produit
+          {submitting ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Publication en cours…
+            </>
+          ) : (
+            'Publier le produit'
+          )}
         </Button>
         <p className="text-[11px] text-gray-400 text-center mt-2">
           Votre produit sera visible immédiatement sur WABUZ
