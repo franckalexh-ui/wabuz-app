@@ -51,6 +51,22 @@ export interface Order {
   createdAt: string;
 }
 
+export interface ClientOrder {
+  id: string;
+  productName: string;
+  productImage: string;
+  vendorName: string;
+  vendorPhone: string;
+  deliveryZone: string;
+  totalAmount: number;
+  status: 'pending' | 'paid' | 'shipped' | 'delivered';
+  escrowStatus: 'held' | 'released';
+  paymentMethod: 'wave' | 'orange_money';
+  quantity: number;
+  createdAt: string;
+  deliveredAt?: string;
+}
+
 export const DELIVERY_ZONES = [
   'Cocody',
   'Plateau',
@@ -420,3 +436,71 @@ export function formatDate(dateStr: string): string {
     minute: '2-digit',
   });
 }
+
+export function formatShortDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+// Mock client orders — what the buyer sees in "Mes Commandes"
+export const MOCK_CLIENT_ORDERS: ClientOrder[] = [
+  {
+    id: 'CMD-7821',
+    productName: 'Samsung Galaxy A54 128Go',
+    productImage: 'https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=300&h=300&fit=crop',
+    vendorName: 'TechShop CI',
+    vendorPhone: '+225 07 58 42 10',
+    deliveryZone: 'Cocody',
+    totalAmount: 186500,
+    status: 'shipped',
+    escrowStatus: 'held',
+    paymentMethod: 'wave',
+    quantity: 1,
+    createdAt: '2024-11-08T10:30:00',
+  },
+  {
+    id: 'CMD-7815',
+    productName: 'Robe Wax Africaine Premium',
+    productImage: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=300&h=300&fit=crop',
+    vendorName: 'Afrique Mode',
+    vendorPhone: '+225 05 44 89 22',
+    deliveryZone: 'Plateau',
+    totalAmount: 26500,
+    status: 'delivered',
+    escrowStatus: 'released',
+    paymentMethod: 'orange_money',
+    quantity: 1,
+    createdAt: '2024-11-05T09:00:00',
+    deliveredAt: '2024-11-06T15:30:00',
+  },
+  {
+    id: 'CMD-7809',
+    productName: 'Crème Hydratante Karité',
+    productImage: 'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=300&h=300&fit=crop',
+    vendorName: 'Beauté Royale',
+    vendorPhone: '+225 01 23 67 45',
+    deliveryZone: 'Marcory',
+    totalAmount: 11500,
+    status: 'paid',
+    escrowStatus: 'held',
+    paymentMethod: 'wave',
+    quantity: 2,
+    createdAt: '2024-11-07T14:15:00',
+  },
+  {
+    id: 'CMD-7795',
+    productName: 'Paire de Chaussures Nike',
+    productImage: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=300&fit=crop',
+    vendorName: 'SportZone Abidjan',
+    vendorPhone: '+225 05 99 33 77',
+    deliveryZone: 'Yopougon',
+    totalAmount: 46500,
+    status: 'pending',
+    escrowStatus: 'held',
+    paymentMethod: 'orange_money',
+    quantity: 1,
+    createdAt: '2024-11-08T16:45:00',
+  },
+];

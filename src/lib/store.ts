@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Product, Order, DELIVERY_FEE, MOCK_ORDERS, PRODUCTS } from './data';
+import { Product, Order, ClientOrder, DELIVERY_FEE, MOCK_ORDERS, MOCK_CLIENT_ORDERS, PRODUCTS } from './data';
 
 export type AppMode = 'client' | 'vendor';
 export type EscrowStatus = 'idle' | 'collecting' | 'held' | 'releasing' | 'released';
@@ -10,6 +10,7 @@ export type AppView =
   | 'checkout'
   | 'payment-processing'
   | 'payment-success'
+  | 'client-orders'
   | 'vendor-dashboard'
   | 'vendor-products'
   | 'vendor-orders'
@@ -48,6 +49,11 @@ interface AppState {
   newOrderCount: number; // unread orders count
   vendorRevenue: number;
 
+  // Client Orders State
+  clientOrders: ClientOrder[];
+  activeClientOrderFilter: 'all' | 'active' | 'delivered';
+  confirmingReceiptId: string | null;
+
   // Actions
   setMode: (mode: AppMode) => void;
   setView: (view: AppView) => void;
@@ -74,6 +80,13 @@ interface AppState {
   simulateNewOrder: () => void;
   getCartTotal: () => number;
   getCartItemCount: () => number;
+
+  // Client Order Actions
+  addClientOrder: (order: ClientOrder) => void;
+  confirmReceipt: (orderId: string) => void;
+  setClientOrderFilter: (filter: 'all' | 'active' | 'delivered') => void;
+  setConfirmingReceiptId: (id: string | null) => void;
+  getActiveOrdersCount: () => number;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -98,6 +111,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   isStoreCreated: false,
   newOrderCount: 1,
   vendorRevenue: 0,
+  clientOrders: [...MOCK_CLIENT_ORDERS],
+  activeClientOrderFilter: 'all',
+  confirmingReceiptId: null,
 
   // Actions
   setMode: (mode) => set({ mode, view: mode === 'client' ? 'home' : 'vendor-dashboard' }),
@@ -220,5 +236,35 @@ export const useAppStore = create<AppState>((set, get) => ({
   getCartItemCount: () => {
     const { cart } = get();
     return cart.reduce((sum, item) => sum + item.quantity, 0);
+  },
+
+  // ── Client Order Actions ─────────────────────────────────
+  addClientOrder: (order) =>
+    set((state) => ({ clientOrders: [order, ...state.clientOrders] })),
+
+  confirmReceipt: (orderId) =>
+    set((state) => ({
+      clientOrders: state.clientOrders.map((order) =>
+        order.id === orderId
+          ? {
+              ...order,
+              status: 'delivered' as const,
+              escrowStatus: 'released' as const,
+              deliveredAt: new Date().toISOString(),
+            }
+          : order,
+      ),
+      confirmingReceiptId: null,
+    })),
+
+  setClientOrderFilter: (filter) => set({ activeClientOrderFilter: filter }),
+
+  setConfirmingReceiptId: (id) => set({ confirmingReceiptId: id }),
+
+  getActiveOrdersCount: () => {
+    const { clientOrders } = get();
+    return clientOrders.filter(
+      (o) => o.status !== 'delivered',
+    ).length;
   },
 }));

@@ -6,6 +6,7 @@ import { BottomNav } from '@/components/wabuz/BottomNav';
 import { ClientHome } from '@/components/wabuz/ClientHome';
 import { ProductDetail } from '@/components/wabuz/ProductDetail';
 import { CheckoutFlow } from '@/components/wabuz/CheckoutFlow';
+import { ClientOrders } from '@/components/wabuz/ClientOrders';
 import { VendorDashboard } from '@/components/wabuz/VendorDashboard';
 import { VendorProducts } from '@/components/wabuz/VendorProducts';
 import { VendorOrders } from '@/components/wabuz/VendorOrders';
@@ -27,6 +28,8 @@ export default function Home() {
         return <CheckoutFlow />;
       case 'payment-success':
         return <CheckoutFlow />;
+      case 'client-orders':
+        return <ClientOrders />;
 
       // Vendor views
       case 'vendor-dashboard':

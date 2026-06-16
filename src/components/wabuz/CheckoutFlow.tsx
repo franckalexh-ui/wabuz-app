@@ -1,7 +1,7 @@
 'use client';
 
 import { useAppStore, EscrowStatus } from '@/lib/store';
-import { formatPrice, DELIVERY_FEE } from '@/lib/data';
+import { formatPrice, DELIVERY_FEE, ClientOrder } from '@/lib/data';
 import { useState, useEffect, useCallback } from 'react';
 import {
   CheckCircle2,
@@ -138,6 +138,7 @@ export function CheckoutFlow() {
     setView,
     clearCart,
     resetCheckout,
+    addClientOrder,
   } = useAppStore();
 
   const [step, setStep] = useState<
@@ -176,7 +177,29 @@ export function CheckoutFlow() {
       clearInterval(progressInterval);
       setProcessingProgress(100);
       setEscrowStatus('held');
-      setLastOrderId(`WAB-${Date.now().toString(36).toUpperCase().slice(-6)}`);
+      const newOrderId = `WAB-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+      setLastOrderId(newOrderId);
+
+      // Create a client order for each item in the cart
+      const now = new Date().toISOString();
+      cart.forEach((item, idx) => {
+        const clientOrder: ClientOrder = {
+          id: idx === 0 ? newOrderId : `${newOrderId}-${idx + 1}`,
+          productName: item.product.name,
+          productImage: item.product.images[0],
+          vendorName: item.product.vendorName,
+          vendorPhone: item.product.vendorPhone,
+          deliveryZone,
+          totalAmount: item.product.price * item.quantity + DELIVERY_FEE,
+          status: 'paid', // payment confirmed, escrow held
+          escrowStatus: 'held',
+          paymentMethod,
+          quantity: item.quantity,
+          createdAt: now,
+        };
+        addClientOrder(clientOrder);
+      });
+
       setTimeout(() => setStep('escrow-held'), 600);
     }, 3500);
 
@@ -184,7 +207,7 @@ export function CheckoutFlow() {
       clearTimeout(timer);
       clearInterval(progressInterval);
     };
-  }, [step, setPaymentStatus, setEscrowStatus, setLastOrderId]);
+  }, [step, setPaymentStatus, setEscrowStatus, setLastOrderId, cart, deliveryZone, paymentMethod, addClientOrder]);
 
   const handleConfirmPayment = useCallback(() => {
     setProcessingProgress(0);
@@ -381,9 +404,9 @@ export function CheckoutFlow() {
           <button
             onClick={() => {
               resetCheckout();
-              setView('home');
+              setView('client-orders');
             }}
-            className="w-full py-3 text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            className="w-full py-3 text-sm text-gray-500 hover:text-orange-600 transition-colors font-medium"
           >
             Suivre ma commande
           </button>
