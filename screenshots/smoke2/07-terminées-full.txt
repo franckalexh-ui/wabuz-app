@@ -1,0 +1,42 @@
+- banner
+  - button [ref=e2]
+  - button [ref=e3]
+  - button [ref=e4]
+- main
+  - heading "Mes Commandes" [level=1, ref=e11]
+  - button "En cours (1)" [ref=e12]
+    - StaticText "En cours (1)"
+  - button "Terminées (1)" [ref=e13]
+    - StaticText "Terminées (1)"
+  - paragraph
+    - StaticText "Commande #MD_002"
+  - paragraph
+    - StaticText "Awa Fashion"
+  - StaticText "Livré"
+  - image "Robe Wax Moderne"
+  - heading "Robe Wax Moderne" [level=3, ref=e5]
+  - paragraph
+    - StaticText "Livraison: Marcory"
+  - StaticText "Escrow libéré"
+  - paragraph
+    - StaticText "16 500 FCFA"
+  - paragraph
+    - StaticText "(Total payé)"
+  - StaticText "Payé"
+  - StaticText "Expédié"
+  - StaticText "Livré"
+  - button "Contacter" [ref=e6]
+- navigation
+  - button "Accueil" [ref=e7]
+    - StaticText "Accueil"
+  - button "Catégories" [ref=e8]
+    - StaticText "Catégories"
+  - button "Commandes" [ref=e9]
+    - StaticText "Commandes"
+  - button "Profil" [ref=e10]
+    - StaticText "Profil"
+- region "Notifications (F8)" [ref=e1]
+  - list
+- button "Open Next.js Dev Tools" [expanded=false, ref=e14]
+  - image
+- alert

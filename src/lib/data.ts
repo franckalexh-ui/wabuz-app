@@ -61,9 +61,10 @@ export interface ClientOrder {
   totalAmount: number;
   status: 'pending' | 'paid' | 'shipped' | 'delivered';
   escrowStatus: 'held' | 'released';
-  paymentMethod: 'wave' | 'orange_money';
-  quantity: number;
-  createdAt: string;
+  // Optional extension fields (not required by the simple ClientOrders component)
+  paymentMethod?: 'wave' | 'orange_money';
+  quantity?: number;
+  createdAt?: string;
   deliveredAt?: string;
 }
 
@@ -456,13 +457,12 @@ export const MOCK_CLIENT_ORDERS: ClientOrder[] = [
     totalAmount: 451500, // 450000 + 1500 livraison
     status: 'shipped', // L'utilisateur peut confirmer la réception
     escrowStatus: 'held',
-    paymentMethod: 'wave',
-    quantity: 1,
-    createdAt: '2024-11-08T10:30:00',
   },
   {
     id: 'cmd_002',
     productName: 'Robe Wax Moderne',
+    // Note: the URL in the spec (photo-1583394293214-28a5b87e1f4d) returns 404 on Unsplash,
+    // using a working wax dress photo instead
     productImage: 'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500',
     vendorName: 'Awa Fashion',
     vendorPhone: '2250708080808',
@@ -470,9 +470,5 @@ export const MOCK_CLIENT_ORDERS: ClientOrder[] = [
     totalAmount: 16500, // 15000 + 1500 livraison
     status: 'delivered', // Déjà livré
     escrowStatus: 'released',
-    paymentMethod: 'orange_money',
-    quantity: 1,
-    createdAt: '2024-11-05T09:00:00',
-    deliveredAt: '2024-11-06T15:30:00',
   },
 ];

@@ -1,0 +1,60 @@
+- banner
+  - button [ref=e2]
+  - button [ref=e3]
+  - button [ref=e4]
+- main
+  - heading "Mes Commandes" [level=1, ref=e13]
+  - button "En cours (0)" [ref=e14]
+    - StaticText "En cours (0)"
+  - button "Terminées (2)" [ref=e15]
+    - StaticText "Terminées (2)"
+  - paragraph
+    - StaticText "Commande #MD_001"
+  - paragraph
+    - StaticText "TechStore CI"
+  - StaticText "Livré"
+  - image "iPhone 13 Pro 128Go"
+  - heading "iPhone 13 Pro 128Go" [level=3, ref=e5]
+  - paragraph
+    - StaticText "Livraison: Cocody"
+  - StaticText "Escrow libéré"
+  - paragraph
+    - StaticText "451 500 FCFA"
+  - paragraph
+    - StaticText "(Total payé)"
+  - StaticText "Payé"
+  - StaticText "Expédié"
+  - StaticText "Livré"
+  - button "Contacter" [ref=e6]
+  - paragraph
+    - StaticText "Commande #MD_002"
+  - paragraph
+    - StaticText "Awa Fashion"
+  - StaticText "Livré"
+  - image "Robe Wax Moderne"
+  - heading "Robe Wax Moderne" [level=3, ref=e7]
+  - paragraph
+    - StaticText "Livraison: Marcory"
+  - StaticText "Escrow libéré"
+  - paragraph
+    - StaticText "16 500 FCFA"
+  - paragraph
+    - StaticText "(Total payé)"
+  - StaticText "Payé"
+  - StaticText "Expédié"
+  - StaticText "Livré"
+  - button "Contacter" [ref=e8]
+- navigation
+  - button "Accueil" [ref=e9]
+    - StaticText "Accueil"
+  - button "Catégories" [ref=e10]
+    - StaticText "Catégories"
+  - button "Commandes" [ref=e11]
+    - StaticText "Commandes"
+  - button "Profil" [ref=e12]
+    - StaticText "Profil"
+- region "Notifications (F8)" [ref=e1]
+  - list
+- button "Open Next.js Dev Tools" [expanded=false, ref=e16]
+  - image
+- alert

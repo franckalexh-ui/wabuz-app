@@ -10,7 +10,7 @@ export type AppView =
   | 'checkout'
   | 'payment-processing'
   | 'payment-success'
-  | 'client-orders'
+  | 'orders'
   | 'vendor-dashboard'
   | 'vendor-products'
   | 'vendor-orders'
@@ -242,20 +242,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   addClientOrder: (order) =>
     set((state) => ({ clientOrders: [order, ...state.clientOrders] })),
 
-  confirmReceipt: (orderId) =>
+  confirmReceipt: (orderId) => {
     set((state) => ({
       clientOrders: state.clientOrders.map((order) =>
         order.id === orderId
-          ? {
-              ...order,
-              status: 'delivered' as const,
-              escrowStatus: 'released' as const,
-              deliveredAt: new Date().toISOString(),
-            }
-          : order,
+          ? { ...order, status: 'delivered' as const, escrowStatus: 'released' as const }
+          : order
       ),
-      confirmingReceiptId: null,
-    })),
+    }));
+  },
 
   setClientOrderFilter: (filter) => set({ activeClientOrderFilter: filter }),
 

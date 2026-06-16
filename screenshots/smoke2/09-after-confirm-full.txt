@@ -1,0 +1,28 @@
+- banner
+  - button [ref=e2]
+  - button [ref=e3]
+  - button [ref=e4]
+- main
+  - heading "Mes Commandes" [level=1, ref=e9]
+  - button "En cours (0)" [ref=e10]
+    - StaticText "En cours (0)"
+  - button "Terminées (2)" [ref=e11]
+    - StaticText "Terminées (2)"
+  - paragraph
+    - StaticText "Aucune commande en cours"
+  - paragraph
+    - StaticText "Vos achats apparaîtront ici"
+- navigation
+  - button "Accueil" [ref=e5]
+    - StaticText "Accueil"
+  - button "Catégories" [ref=e6]
+    - StaticText "Catégories"
+  - button "Commandes" [ref=e7]
+    - StaticText "Commandes"
+  - button "Profil" [ref=e8]
+    - StaticText "Profil"
+- region "Notifications (F8)" [ref=e1]
+  - list
+- button "Open Next.js Dev Tools" [expanded=false, ref=e12]
+  - image
+- alert

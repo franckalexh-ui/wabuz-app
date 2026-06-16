@@ -404,7 +404,7 @@ export function CheckoutFlow() {
           <button
             onClick={() => {
               resetCheckout();
-              setView('client-orders');
+              setView('orders');
             }}
             className="w-full py-3 text-sm text-gray-500 hover:text-orange-600 transition-colors font-medium"
           >

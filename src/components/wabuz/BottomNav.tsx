@@ -12,17 +12,14 @@ interface NavItem {
 }
 
 export function BottomNav() {
-  const { mode, view, setView, newOrderCount, vendorOrders, clientOrders } = useAppStore();
+  const { mode, view, setView, newOrderCount, vendorOrders } = useAppStore();
 
   const pendingCount = vendorOrders.filter((o) => o.status === 'pending').length;
-  const activeClientOrdersCount = clientOrders.filter(
-    (o) => o.status === 'shipped',
-  ).length; // orders waiting for receipt confirmation
 
   const clientNavItems: NavItem[] = [
     { icon: <Home className="w-5 h-5" />, label: 'Accueil', view: 'home' },
     { icon: <Grid3X3 className="w-5 h-5" />, label: 'Catégories', view: 'home' },
-    { icon: <ShoppingBag className="w-5 h-5" />, label: 'Commandes', view: 'client-orders', badge: activeClientOrdersCount > 0 ? activeClientOrdersCount : undefined },
+    { icon: <ShoppingBag className="w-5 h-5" />, label: 'Commandes', view: 'orders' },
     { icon: <User className="w-5 h-5" />, label: 'Profil', view: 'home' },
   ];
 
@@ -41,7 +38,7 @@ export function BottomNav() {
         {navItems.map((item) => {
           const isActive = view === item.view || 
             (item.view === 'home' && (view === 'home' || view === 'product-detail' || view === 'checkout' || view === 'payment-processing' || view === 'payment-success')) ||
-            (item.view === 'client-orders' && view === 'client-orders') ||
+            (item.view === 'orders' && view === 'orders') ||
             (item.view === 'vendor-dashboard' && (view === 'vendor-dashboard' || view === 'vendor-add-product')) ||
             (item.view === 'vendor-products' && view === 'vendor-products') ||
             (item.view === 'vendor-orders' && view === 'vendor-orders');
