@@ -1,26 +1,30 @@
 'use client';
 
 import { useAppStore } from '@/lib/store';
-import { Search, ShoppingCart, ArrowLeft, Store, ShoppingBag } from 'lucide-react';
+import { Search, ShoppingCart, ArrowLeft, Store, ShoppingBag, Bell } from 'lucide-react';
 
 export function Header() {
-  const { mode, view, goBack, setMode, getCartItemCount, setView } = useAppStore();
+  const { mode, view, goBack, setMode, getCartItemCount, setView, newOrderCount } = useAppStore();
   const cartCount = getCartItemCount();
+
+  // Show back button for all views except the "root" views
+  const showBack = view !== 'home' && view !== 'vendor-dashboard';
+  const showLogo = view === 'home' || view === 'vendor-dashboard';
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
       <div className="max-w-lg mx-auto flex items-center justify-between px-4 h-14">
         {/* Left */}
         <div className="flex items-center gap-3">
-          {view !== 'home' && view !== 'vendor-dashboard' ? (
+          {showBack && (
             <button
               onClick={goBack}
               className="flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors"
             >
               <ArrowLeft className="w-5 h-5 text-gray-700" />
             </button>
-          ) : null}
-          {view === 'home' || view === 'vendor-dashboard' ? (
+          )}
+          {showLogo && (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
                 <span className="text-white font-bold text-sm">W</span>
@@ -30,7 +34,14 @@ export function Header() {
                 <span className="text-gray-900">BUZ</span>
               </span>
             </div>
-          ) : null}
+          )}
+          {!showLogo && !showBack && (
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+                <span className="text-white font-bold text-sm">W</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right */}
@@ -43,15 +54,30 @@ export function Header() {
             {mode === 'client' ? (
               <>
                 <Store className="w-3.5 h-3.5 text-orange-500" />
-                <span className="text-gray-700">Mode Vendeur</span>
+                <span className="text-gray-700 hidden sm:inline">Mode Vendeur</span>
               </>
             ) : (
               <>
                 <ShoppingBag className="w-3.5 h-3.5 text-orange-500" />
-                <span className="text-gray-700">Mode Client</span>
+                <span className="text-gray-700 hidden sm:inline">Mode Client</span>
               </>
             )}
           </button>
+
+          {/* Notification Bell (Vendor mode) */}
+          {mode === 'vendor' && (
+            <button
+              onClick={() => setView('vendor-orders')}
+              className="relative flex items-center justify-center w-9 h-9 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <Bell className="w-5 h-5 text-gray-700" />
+              {newOrderCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {newOrderCount > 9 ? '9+' : newOrderCount}
+                </span>
+              )}
+            </button>
+          )}
 
           {/* Cart Icon (Client mode only) */}
           {mode === 'client' && (

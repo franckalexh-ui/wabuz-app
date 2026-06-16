@@ -1,23 +1,61 @@
 'use client';
 
 import { useAppStore } from '@/lib/store';
-import { CATEGORIES } from '@/lib/data';
+import { CATEGORIES, formatPrice } from '@/lib/data';
 import { useState } from 'react';
-import { Camera, Link, X } from 'lucide-react';
+import { Camera, Link2, X, CheckCircle2, ArrowLeft, Sparkles, ImagePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 
+// Suggested images per category
+const SUGGESTED_IMAGES: Record<string, string[]> = {
+  smartphones: [
+    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=600&h=600&fit=crop',
+  ],
+  mode: [
+    'https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=600&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?w=600&h=600&fit=crop',
+  ],
+  beaute: [
+    'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=600&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1608248543803-ba4f8c70ae0b?w=600&h=600&fit=crop',
+  ],
+  maison: [
+    'https://images.unsplash.com/photo-1631567091168-90e2e4ddc1b4?w=600&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=600&h=600&fit=crop',
+  ],
+  electronique: [
+    'https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=600&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1631567091168-90e2e4ddc1b4?w=600&h=600&fit=crop',
+  ],
+  sport: [
+    'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1614632537197-38a17061c2bd?w=600&h=600&fit=crop',
+  ],
+  alimentation: [
+    'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=600&h=600&fit=crop',
+  ],
+  enfants: [
+    'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=600&h=600&fit=crop',
+    'https://images.unsplash.com/photo-1566576912321-d58ddd7a6088?w=600&h=600&fit=crop',
+  ],
+};
+
 export function VendorAddProduct() {
-  const { addVendorProduct, setView } = useAppStore();
+  const { addVendorProduct, setView, vendorStoreName, vendorPhone, vendorWhatsapp } = useAppStore();
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [images, setImages] = useState<string[]>([]);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [createdProductName, setCreatedProductName] = useState('');
 
   const handleAddImage = () => {
-    if (imageUrl.trim()) {
+    if (imageUrl.trim() && !images.includes(imageUrl.trim())) {
       setImages([...images, imageUrl.trim()]);
       setImageUrl('');
     }
@@ -25,6 +63,12 @@ export function VendorAddProduct() {
 
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
+  };
+
+  const handleSuggestedImage = (url: string) => {
+    if (!images.includes(url)) {
+      setImages([...images, url]);
+    }
   };
 
   const handleSubmit = () => {
@@ -45,61 +89,113 @@ export function VendorAddProduct() {
       description,
       images: images.length > 0 ? images : ['https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop'],
       vendorId: 'v_current',
-      vendorName: 'Ma Boutique',
+      vendorName: vendorStoreName || 'Ma Boutique',
       vendorRating: 5.0,
-      vendorPhone: '+225 07 00 00 00',
-      vendorWhatsapp: '225070000000',
+      vendorPhone: vendorPhone || '+225 07 00 00 00',
+      vendorWhatsapp: vendorWhatsapp || '225070000000',
       inStock: true,
       createdAt: new Date().toISOString(),
     };
 
     addVendorProduct(product);
-    toast({
-      title: 'Produit ajouté !',
-      description: `${name} est maintenant en ligne`,
-    });
-    setView('vendor-products');
+    setCreatedProductName(name);
+    setShowSuccess(true);
   };
+
+  // Success State
+  if (showSuccess) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center px-6 text-center">
+        <div className="relative mb-6">
+          <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center animate-in zoom-in duration-500">
+            <CheckCircle2 className="w-14 h-14 text-emerald-500" />
+          </div>
+          <div className="absolute -top-1 -right-1 w-8 h-8 bg-amber-400 rounded-full flex items-center justify-center animate-in zoom-in duration-700">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+        </div>
+        <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Produit publié !</h2>
+        <p className="text-sm text-gray-500 mb-2">
+          <span className="font-semibold text-gray-700">{createdProductName}</span> est maintenant visible par les clients
+        </p>
+        <p className="text-xs text-gray-400 mb-8">Les acheteurs à Abidjan peuvent dès à présent le commander</p>
+
+        <div className="w-full space-y-3">
+          <Button
+            onClick={() => {
+              setShowSuccess(false);
+              setName('');
+              setPrice('');
+              setCategory('');
+              setDescription('');
+              setImages([]);
+            }}
+            className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-500/30"
+          >
+            Ajouter un autre produit
+          </Button>
+          <Button
+            onClick={() => setView('vendor-products')}
+            variant="outline"
+            className="w-full h-12 rounded-xl font-semibold"
+          >
+            Voir mes produits
+          </Button>
+          <Button
+            onClick={() => setView('vendor-dashboard')}
+            variant="ghost"
+            className="w-full h-10 text-gray-400 text-sm"
+          >
+            Retour au tableau de bord
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const priceNum = parseInt(price, 10) || 0;
+  const suggestedImages = category ? SUGGESTED_IMAGES[category] || [] : [];
 
   return (
     <div className="pb-6">
-      <div className="px-4 pt-4 pb-3">
-        <h2 className="text-lg font-bold text-gray-900">Ajouter un produit</h2>
-        <span className="text-xs text-gray-400">Remplissez les informations du produit</span>
+      {/* Header */}
+      <div className="px-4 pt-4 pb-2">
+        <h2 className="text-lg font-bold text-gray-900">Nouveau produit</h2>
+        <span className="text-xs text-gray-400">Remplissez les informations ci-dessous</span>
       </div>
 
       <div className="px-4 space-y-5">
-        {/* Images */}
+        {/* Photos */}
         <div>
           <label className="text-sm font-semibold text-gray-700 mb-2 block">
             Photos du produit
           </label>
           <div className="flex gap-2 flex-wrap mb-2">
             {images.map((img, i) => (
-              <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100">
+              <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 group">
                 <img src={img} alt={`Product ${i + 1}`} className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
                 <button
                   onClick={() => handleRemoveImage(i)}
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center"
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <X className="w-3 h-3 text-white" />
                 </button>
               </div>
             ))}
-            <button
-              onClick={() => {}} // Would open image picker in real app
-              className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center hover:border-orange-300 hover:bg-orange-50/50 transition-colors"
-            >
-              <Camera className="w-5 h-5 text-gray-300" />
+            <label className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center hover:border-orange-300 hover:bg-orange-50/50 transition-colors cursor-pointer">
+              <ImagePlus className="w-5 h-5 text-gray-300" />
               <span className="text-[9px] text-gray-400 mt-1">Ajouter</span>
-            </button>
+            </label>
           </div>
-          <div className="flex gap-2">
+
+          {/* Image URL Input */}
+          <div className="flex gap-2 mb-2">
             <input
               type="url"
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="URL de l'image"
+              placeholder="Collez l'URL d'une image"
               className="flex-1 h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500"
               onKeyDown={(e) => e.key === 'Enter' && handleAddImage()}
             />
@@ -109,10 +205,30 @@ export function VendorAddProduct() {
               size="sm"
               className="h-10 px-4 border-orange-200 text-orange-600 hover:bg-orange-50"
             >
-              <Link className="w-4 h-4 mr-1" />
+              <Link2 className="w-4 h-4 mr-1" />
               Ajouter
             </Button>
           </div>
+
+          {/* Suggested Images */}
+          {suggestedImages.length > 0 && (
+            <div>
+              <p className="text-[11px] text-gray-400 mb-1.5">Images suggérées :</p>
+              <div className="flex gap-2">
+                {suggestedImages.map((url, i) => (
+                  <button
+                    key={i}
+                    onClick={() => handleSuggestedImage(url)}
+                    className={`w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${
+                      images.includes(url) ? 'border-orange-500 opacity-50' : 'border-transparent hover:border-orange-300'
+                    }`}
+                  >
+                    <img src={url} alt="Suggestion" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Product Name */}
@@ -157,7 +273,7 @@ export function VendorAddProduct() {
             {CATEGORIES.map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => setCategory(cat.id)}
+                onClick={() => setCategory(category === cat.id ? '' : cat.id)}
                 className={`px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 ${
                   category === cat.id
                     ? 'bg-orange-500 text-white shadow-md shadow-orange-500/20'
@@ -179,22 +295,53 @@ export function VendorAddProduct() {
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Décrivez votre produit en détail..."
+            placeholder="Décrivez votre produit : état, caractéristiques, conditions de livraison..."
             rows={4}
             className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all resize-none"
           />
+          <p className="text-[11px] text-gray-400 mt-1">{description.length}/500 caractères</p>
         </div>
       </div>
+
+      {/* Live Preview */}
+      {name && priceNum > 0 && (
+        <div className="px-4 mt-6">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Aperçu</p>
+          <div className="bg-gray-50 rounded-2xl p-4 flex gap-3">
+            <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
+              {images[0] ? (
+                <img src={images[0]} alt={name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-2xl">
+                  {category ? CATEGORIES.find((c) => c.id === category)?.icon : '📦'}
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 line-clamp-1">{name}</p>
+              <p className="text-base font-bold text-orange-600 mt-0.5">{formatPrice(priceNum)}</p>
+              {category && (
+                <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium">
+                  {CATEGORIES.find((c) => c.id === category)?.name}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Submit Button */}
       <div className="px-4 mt-6">
         <Button
           onClick={handleSubmit}
           disabled={!name || !price || !category || !description}
-          className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50 transition-all"
+          className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50 transition-all active:scale-[0.98]"
         >
           Publier le produit
         </Button>
+        <p className="text-[11px] text-gray-400 text-center mt-2">
+          Votre produit sera visible immédiatement sur WABUZ
+        </p>
       </div>
     </div>
   );

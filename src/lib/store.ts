@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Product, Order, DELIVERY_FEE } from './data';
+import { Product, Order, DELIVERY_FEE, MOCK_ORDERS, PRODUCTS } from './data';
 
 export type AppMode = 'client' | 'vendor';
 export type AppView =
@@ -41,6 +41,8 @@ interface AppState {
   vendorProducts: Product[];
   vendorOrders: Order[];
   isStoreCreated: boolean;
+  newOrderCount: number; // unread orders count
+  vendorRevenue: number;
 
   // Actions
   setMode: (mode: AppMode) => void;
@@ -57,8 +59,12 @@ interface AppState {
   setPaymentStatus: (status: 'idle' | 'processing' | 'success') => void;
   setVendorStore: (name: string, phone: string, whatsapp: string) => void;
   addVendorProduct: (product: Product) => void;
+  deleteVendorProduct: (productId: string) => void;
+  toggleProductStock: (productId: string) => void;
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
   setIsStoreCreated: (created: boolean) => void;
+  clearNewOrderCount: () => void;
+  simulateNewOrder: () => void;
   getCartTotal: () => number;
   getCartItemCount: () => number;
 }
@@ -78,9 +84,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   vendorStoreName: '',
   vendorPhone: '',
   vendorWhatsapp: '',
-  vendorProducts: [],
-  vendorOrders: [],
+  vendorProducts: [...PRODUCTS.slice(0, 5)], // Vendor starts with 5 products
+  vendorOrders: [...MOCK_ORDERS],
   isStoreCreated: false,
+  newOrderCount: 1,
+  vendorRevenue: 0,
 
   // Actions
   setMode: (mode) => set({ mode, view: mode === 'client' ? 'home' : 'vendor-dashboard' }),
@@ -92,7 +100,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (prev) {
       return { view: prev, previousView: null };
     }
-    // Default navigation
     if (state.mode === 'client') {
       return { view: 'home', previousView: null };
     }
@@ -135,7 +142,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ vendorStoreName: name, vendorPhone: phone, vendorWhatsapp: whatsapp, isStoreCreated: true }),
 
   addVendorProduct: (product) =>
-    set((state) => ({ vendorProducts: [...state.vendorProducts, product] })),
+    set((state) => ({ vendorProducts: [product, ...state.vendorProducts] })),
+
+  deleteVendorProduct: (productId) =>
+    set((state) => ({
+      vendorProducts: state.vendorProducts.filter((p) => p.id !== productId),
+    })),
+
+  toggleProductStock: (productId) =>
+    set((state) => ({
+      vendorProducts: state.vendorProducts.map((p) =>
+        p.id === productId ? { ...p, inStock: !p.inStock } : p
+      ),
+    })),
 
   updateOrderStatus: (orderId, status) =>
     set((state) => ({
@@ -145,6 +164,37 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
 
   setIsStoreCreated: (created) => set({ isStoreCreated: created }),
+
+  clearNewOrderCount: () => set({ newOrderCount: 0 }),
+
+  simulateNewOrder: () => {
+    const { vendorProducts } = get();
+    if (vendorProducts.length === 0) return;
+    const randomProduct = vendorProducts[Math.floor(Math.random() * vendorProducts.length)];
+    const zones = ['Cocody', 'Plateau', 'Adjamé', 'Yopougon', 'Marcory'] as const;
+    const randomZone = zones[Math.floor(Math.random() * zones.length)];
+    const qty = Math.floor(Math.random() * 2) + 1;
+    const newOrder: Order = {
+      id: `ord_${Date.now()}`,
+      productId: randomProduct.id,
+      productName: randomProduct.name,
+      productImage: randomProduct.images[0],
+      buyerPhone: `+225 0${Math.floor(Math.random() * 9) + 1} ${Math.floor(Math.random() * 90 + 10)} ${Math.floor(Math.random() * 90 + 10)} ${Math.floor(Math.random() * 90 + 10)}`,
+      vendorId: 'v_current',
+      vendorName: get().vendorStoreName || 'Ma Boutique',
+      quantity: qty,
+      totalPrice: randomProduct.price * qty + DELIVERY_FEE,
+      deliveryZone: randomZone,
+      deliveryFee: DELIVERY_FEE,
+      status: 'pending',
+      paymentMethod: Math.random() > 0.5 ? 'wave' : 'orange_money',
+      createdAt: new Date().toISOString(),
+    };
+    set((state) => ({
+      vendorOrders: [newOrder, ...state.vendorOrders],
+      newOrderCount: state.newOrderCount + 1,
+    }));
+  },
 
   getCartTotal: () => {
     const { cart } = get();

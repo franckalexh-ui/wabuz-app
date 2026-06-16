@@ -8,10 +8,13 @@ interface NavItem {
   icon: React.ReactNode;
   label: string;
   view: AppView;
+  badge?: number;
 }
 
 export function BottomNav() {
-  const { mode, view, setView } = useAppStore();
+  const { mode, view, setView, newOrderCount, vendorOrders } = useAppStore();
+
+  const pendingCount = vendorOrders.filter((o) => o.status === 'pending').length;
 
   const clientNavItems: NavItem[] = [
     { icon: <Home className="w-5 h-5" />, label: 'Accueil', view: 'home' },
@@ -21,9 +24,9 @@ export function BottomNav() {
   ];
 
   const vendorNavItems: NavItem[] = [
-    { icon: <Home className="w-5 h-5" />, label: 'Tableau', view: 'vendor-dashboard' },
+    { icon: <Home className="w-5 h-5" />, label: 'Tableau', view: 'vendor-dashboard', badge: newOrderCount > 0 ? newOrderCount : undefined },
     { icon: <Grid3X3 className="w-5 h-5" />, label: 'Produits', view: 'vendor-products' },
-    { icon: <ShoppingBag className="w-5 h-5" />, label: 'Commandes', view: 'vendor-orders' },
+    { icon: <ShoppingBag className="w-5 h-5" />, label: 'Commandes', view: 'vendor-orders', badge: pendingCount > 0 ? pendingCount : undefined },
     { icon: <User className="w-5 h-5" />, label: 'Profil', view: 'vendor-dashboard' },
   ];
 
@@ -35,7 +38,7 @@ export function BottomNav() {
         {navItems.map((item) => {
           const isActive = view === item.view || 
             (item.view === 'home' && (view === 'home' || view === 'product-detail' || view === 'checkout' || view === 'payment-processing' || view === 'payment-success')) ||
-            (item.view === 'vendor-dashboard' && view === 'vendor-dashboard') ||
+            (item.view === 'vendor-dashboard' && (view === 'vendor-dashboard' || view === 'vendor-add-product')) ||
             (item.view === 'vendor-products' && view === 'vendor-products') ||
             (item.view === 'vendor-orders' && view === 'vendor-orders');
           
@@ -43,7 +46,7 @@ export function BottomNav() {
             <button
               key={item.label}
               onClick={() => setView(item.view)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${
+              className={`relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-lg transition-colors ${
                 isActive
                   ? 'text-orange-500'
                   : 'text-gray-400 hover:text-gray-600'
@@ -51,6 +54,11 @@ export function BottomNav() {
             >
               {item.icon}
               <span className="text-[10px] font-medium">{item.label}</span>
+              {item.badge && item.badge > 0 && (
+                <span className="absolute -top-0.5 right-0.5 w-4 h-4 bg-red-500 text-white text-[8px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                  {item.badge > 9 ? '9+' : item.badge}
+                </span>
+              )}
             </button>
           );
         })}
