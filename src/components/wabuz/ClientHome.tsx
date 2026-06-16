@@ -1,17 +1,64 @@
 'use client';
 
-import { PRODUCTS, CATEGORIES, formatPrice } from '@/lib/data';
+import { useEffect, useState } from 'react';
+import { CATEGORIES, formatPrice, type Product } from '@/lib/data';
 import { useAppStore } from '@/lib/store';
+import { supabase } from '@/lib/supabaseClient';
 import { ProductCard } from './ProductCard';
 import { SearchBar } from './SearchBar';
 import { CategoryBar } from './CategoryBar';
-import { TrendingUp, Clock, Sparkles } from 'lucide-react';
+import { TrendingUp, Clock, Sparkles, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 
 export function ClientHome() {
   const { searchQuery, selectedCategory } = useAppStore();
 
-  // Filter products
-  let filteredProducts = PRODUCTS;
+  // ── Real products state (fetched from Supabase) ───────────────
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      setError(null);
+      const { data, error } = await supabase
+        .from('products')
+        .select('*');
+
+      if (error) {
+        setError(error.message);
+        setProducts([]);
+      } else if (data) {
+        // Normalize Supabase rows to the local Product shape.
+        // Handles both `images` (array) and `image_url` (single string) columns.
+        const normalized: Product[] = (data as any[]).map((row) => ({
+          id: String(row.id),
+          name: row.name ?? 'Sans nom',
+          price: Number(row.price ?? 0),
+          category: row.category ?? '',
+          description: row.description ?? '',
+          images: Array.isArray(row.images)
+            ? row.images
+            : row.image_url
+              ? [row.image_url]
+              : [],
+          vendorId: String(row.vendor_id ?? row.vendorId ?? ''),
+          vendorName: row.vendor_name ?? row.vendorName ?? 'Boutique WABUZ',
+          vendorRating: Number(row.vendor_rating ?? row.vendorRating ?? 0),
+          vendorPhone: row.vendor_phone ?? row.vendorPhone ?? '',
+          vendorWhatsapp: row.vendor_whatsapp ?? row.vendorWhatsapp ?? '',
+          inStock: row.in_stock ?? row.inStock ?? true,
+          createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString(),
+        }));
+        setProducts(normalized);
+      }
+      setLoading(false);
+    };
+    fetchProducts();
+  }, []);
+
+  // Filter products (now from Supabase state)
+  let filteredProducts = products;
   if (selectedCategory) {
     filteredProducts = filteredProducts.filter((p) => p.category === selectedCategory);
   }
@@ -75,18 +122,22 @@ export function ClientHome() {
                 <span className="text-lg font-bold text-gray-900">
                   {selectedCategoryName}
                 </span>
-                <span className="text-sm text-gray-400">
-                  ({filteredProducts.length})
-                </span>
+                {!loading && (
+                  <span className="text-sm text-gray-400">
+                    ({filteredProducts.length})
+                  </span>
+                )}
               </>
             ) : searchQuery ? (
               <>
                 <span className="text-lg font-bold text-gray-900">
                   Résultats pour &quot;{searchQuery}&quot;
                 </span>
-                <span className="text-sm text-gray-400">
-                  ({filteredProducts.length})
-                </span>
+                {!loading && (
+                  <span className="text-sm text-gray-400">
+                    ({filteredProducts.length})
+                  </span>
+                )}
               </>
             ) : (
               <>
@@ -100,27 +151,101 @@ export function ClientHome() {
         </div>
       </div>
 
-      {/* Product Grid */}
-      {filteredProducts.length > 0 ? (
-        <div className="px-4 grid grid-cols-2 gap-3">
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
-          ))}
-        </div>
-      ) : (
-        <div className="px-4 py-16 text-center">
-          <div className="text-5xl mb-4">🔍</div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-1">
-            Aucun produit trouvé
-          </h3>
-          <p className="text-sm text-gray-400">
-            Essayez de modifier votre recherche ou catégorie
+      {/* Loading state */}
+      {loading && (
+        <div className="px-4 py-16 flex flex-col items-center justify-center text-center">
+          <Loader2 className="w-8 h-8 text-orange-500 animate-spin mb-3" />
+          <p className="text-sm font-medium text-gray-600">
+            Chargement des produits…
+          </p>
+          <p className="text-xs text-gray-400 mt-1">
+            Connexion à Supabase en cours
           </p>
         </div>
       )}
 
+      {/* Error state */}
+      {!loading && error && (
+        <div className="px-4 py-12 flex flex-col items-center justify-center text-center">
+          <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mb-3">
+            <AlertCircle className="w-7 h-7 text-red-500" />
+          </div>
+          <p className="text-sm font-semibold text-gray-800 mb-1">
+            Impossible de charger les produits
+          </p>
+          <p className="text-xs text-gray-500 mb-4 max-w-xs">
+            {error}
+          </p>
+          <button
+            onClick={() => {
+              // Re-run the fetch by toggling state (simple reload)
+              setLoading(true);
+              setError(null);
+              supabase
+                .from('products')
+                .select('*')
+                .then(({ data, error }) => {
+                  if (error) {
+                    setError(error.message);
+                    setProducts([]);
+                  } else if (data) {
+                    const normalized: Product[] = (data as any[]).map((row) => ({
+                      id: String(row.id),
+                      name: row.name ?? 'Sans nom',
+                      price: Number(row.price ?? 0),
+                      category: row.category ?? '',
+                      description: row.description ?? '',
+                      images: Array.isArray(row.images)
+                        ? row.images
+                        : row.image_url
+                          ? [row.image_url]
+                          : [],
+                      vendorId: String(row.vendor_id ?? row.vendorId ?? ''),
+                      vendorName: row.vendor_name ?? row.vendorName ?? 'Boutique WABUZ',
+                      vendorRating: Number(row.vendor_rating ?? row.vendorRating ?? 0),
+                      vendorPhone: row.vendor_phone ?? row.vendorPhone ?? '',
+                      vendorWhatsapp: row.vendor_whatsapp ?? row.vendorWhatsapp ?? '',
+                      inStock: row.in_stock ?? row.inStock ?? true,
+                      createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString(),
+                    }));
+                    setProducts(normalized);
+                  }
+                  setLoading(false);
+                });
+            }}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-semibold rounded-full hover:bg-orange-600 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Réessayer
+          </button>
+        </div>
+      )}
+
+      {/* Product Grid */}
+      {!loading && !error && (
+        <>
+          {filteredProducts.length > 0 ? (
+            <div className="px-4 grid grid-cols-2 gap-3">
+              {filteredProducts.map((product) => (
+                <ProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="px-4 py-16 text-center">
+              <div className="text-5xl mb-4">🔍</div>
+              <h3 className="text-lg font-semibold text-gray-700 mb-1">
+                Aucun produit trouvé
+              </h3>
+              <p className="text-sm text-gray-400">
+                Essayez de modifier votre recherche ou catégorie
+              </p>
+            </div>
+          )}
+        </>
+      )}
+
       {/* Recently Viewed Section (only on home without filters) */}
-      {!selectedCategory && !searchQuery && (
+      {!selectedCategory && !searchQuery && !loading && !error && products.length > 0 && (
         <div className="mt-8">
           <div className="px-4 flex items-center gap-2 mb-3">
             <Clock className="w-5 h-5 text-gray-400" />
@@ -128,7 +253,7 @@ export function ClientHome() {
           </div>
           <div className="overflow-x-auto scrollbar-hide">
             <div className="flex gap-3 px-4" style={{ minWidth: 'max-content' }}>
-              {PRODUCTS.slice(0, 6).map((product) => (
+              {products.slice(0, 6).map((product) => (
                 <button
                   key={product.id}
                   onClick={() => useAppStore.getState().selectProduct(product)}

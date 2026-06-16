@@ -119,3 +119,43 @@ Stage Summary:
 - Client side now has a complete post-purchase loop: pay → see order in Mes Commandes → wait for shipping → confirm receipt → escrow released
 - Escrow semantics are visible to the buyer (Lock icon while held, Unlock icon after release)
 - Vendor and client order flows are connected through the same store, ready for end-to-end testing
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Connect WABUZ to Supabase — fetch real products on the client home page
+
+Work Log:
+- ACTION 1 — Installation & configuration
+  - `npm install @supabase/supabase-js` (v2.108.2)
+  - Created `/home/z/my-project/.env.local` with:
+    - `NEXT_PUBLIC_SUPABASE_URL=https://cnsbtnatympgcftpzhch.supabase.co`
+    - `NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGc...` (full anon key)
+  - Created `/home/z/my-project/src/lib/supabaseClient.ts` exporting the singleton `supabase` client (createClient with URL + anon key)
+  - Restarted dev server — Next.js confirms `.env.local` is loaded (`Environments: .env.local, .env`)
+- ACTION 2 — Display real products on the client home page
+  - Rewrote `src/components/wabuz/ClientHome.tsx`:
+    - Removed the static `PRODUCTS` import (kept `CATEGORIES`, `formatPrice`, `type Product` for filtering/formatting)
+    - Added local state: `products`, `loading`, `error`
+    - Added `useEffect(() => { ... }, [])` that calls `supabase.from('products').select('*')`
+    - On success: normalizes each Supabase row to the local `Product` shape (handles both `images` array and `image_url` string columns, snake_case → camelCase)
+    - On error: stores `error.message` and shows a retry button
+    - Loading state: spinner + "Connexion à Supabase en cours"
+    - Error state: alert icon + error message + "Réessayer" button that re-runs the fetch
+    - Product grid maps over `filteredProducts` (now from Supabase state, not the mock)
+    - "Récemment Consultés" section now uses the first 6 fetched products instead of `PRODUCTS`
+- Verification
+  - ESLint: `npx eslint src/ --max-warnings 0` → 0 warnings, 0 errors
+  - TypeScript: no errors in `src/` (only unrelated error in `skills/stock-analysis-skill/`)
+  - Dev server: `curl http://localhost:3000/` → HTTP 200
+  - Smoke test: `node scripts/test_supabase_full.mjs` confirms the REST API returns 2 products (iPhone 13 Pro 128Go 450 000 FCFA, Écouteurs Bluetooth 15 000 FCFA) with columns: id, store_id, name, description, price, image_url, category, created_at
+  - Browser test (agent-browser): home page shows the 2 real products from Supabase with correct images, names, prices, and "Boutique WABUZ" vendor fallback; clicking a product opens the detail page with price 451 500 FCFA (450 000 + 1 500 livraison); no console errors, no page errors
+  - Screenshot saved at `/home/z/my-project/download/supabase-home.png`
+
+Stage Summary:
+- Supabase is now the source of truth for products on the client marketplace
+- The home page makes a single GET request to `products` on mount and re-renders the grid with the real data
+- Loading and error states keep the UX clean if Supabase is slow or unreachable
+- Schema flexibility: the normalization layer supports both `images[]` (array) and `image_url` (string) column shapes, so future schema changes won't break the UI
+- Note: the `category` column in Supabase holds display labels ("Smartphones", "Accessoires") rather than IDs ("smartphones"), so category-bar filtering won't match yet — this can be fixed either by normalizing categories client-side or by aligning the column values in a follow-up task
+
