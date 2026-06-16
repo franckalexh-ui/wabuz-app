@@ -14,6 +14,8 @@ import {
   ChevronRight,
   CheckCircle2,
   Clock,
+  Lock,
+  ArrowRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -40,6 +42,8 @@ export function ProductDetail({ product }: ProductDetailProps) {
     setShowCheckoutModal(false);
     setView('checkout');
   };
+
+  const isWave = paymentMethod === 'wave';
 
   return (
     <div className="pb-24">
@@ -297,46 +301,74 @@ export function ProductDetail({ product }: ProductDetailProps) {
             </div>
 
             {/* Payment Method */}
-            <div className="mb-6">
+            <div className="mb-4">
               <label className="text-sm font-semibold text-gray-900 mb-2 block">
                 Mode de paiement
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setPaymentMethod('wave')}
-                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                  className={`relative flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-all ${
                     paymentMethod === 'wave'
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-[#1DC3E0] bg-[#E8F9FC] shadow-md shadow-[#1DC3E0]/20'
                       : 'border-gray-100 bg-white hover:border-gray-200'
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-full bg-[#1DC3E0] flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">W</span>
+                  {paymentMethod === 'wave' && (
+                    <div className="absolute top-2 right-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#1DC3E0]" />
+                    </div>
+                  )}
+                  <div className="w-10 h-10 rounded-xl bg-[#1DC3E0] flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">W</span>
                   </div>
-                  <span className="text-sm font-semibold text-gray-700">Wave</span>
+                  <span className="text-xs font-bold text-gray-700">Wave</span>
+                  <span className="text-[9px] text-gray-400">Paiement instantané</span>
                 </button>
                 <button
                   onClick={() => setPaymentMethod('orange_money')}
-                  className={`flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                  className={`relative flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-all ${
                     paymentMethod === 'orange_money'
-                      ? 'border-orange-500 bg-orange-50'
+                      ? 'border-[#FF6600] bg-[#FFF2E6] shadow-md shadow-[#FF6600]/20'
                       : 'border-gray-100 bg-white hover:border-gray-200'
                   }`}
                 >
-                  <div className="w-8 h-8 rounded-full bg-[#FF6600] flex items-center justify-center">
-                    <span className="text-white font-bold text-xs">OM</span>
+                  {paymentMethod === 'orange_money' && (
+                    <div className="absolute top-2 right-2">
+                      <CheckCircle2 className="w-4 h-4 text-[#FF6600]" />
+                    </div>
+                  )}
+                  <div className="w-10 h-10 rounded-xl bg-[#FF6600] flex items-center justify-center">
+                    <span className="text-white font-bold text-sm">OM</span>
                   </div>
-                  <span className="text-sm font-semibold text-gray-700">Orange Money</span>
+                  <span className="text-xs font-bold text-gray-700">Orange Money</span>
+                  <span className="text-[9px] text-gray-400">Paiement mobile</span>
                 </button>
               </div>
+            </div>
+
+            {/* Escrow Info */}
+            <div className="bg-emerald-50 rounded-xl p-3 mb-5 flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <Lock className="w-4 h-4 text-emerald-500" />
+              </div>
+              <div className="flex-1">
+                <span className="text-[11px] font-bold text-emerald-800 block">Paiement Escrow Sécurisé</span>
+                <span className="text-[9px] text-emerald-600">Votre argent est bloqué jusqu'à la livraison confirmée</span>
+              </div>
+              <Shield className="w-4 h-4 text-emerald-300 flex-shrink-0" />
             </div>
 
             <Button
               onClick={handlePayment}
               disabled={!deliveryZone}
-              className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50 disabled:shadow-none transition-all"
+              className={`w-full h-12 font-bold text-base rounded-xl shadow-lg disabled:opacity-50 disabled:shadow-none transition-all active:scale-[0.98] ${
+                isWave
+                  ? 'bg-[#1DC3E0] hover:bg-[#1ab5d1] text-white shadow-[#1DC3E0]/30'
+                  : 'bg-[#FF6600] hover:bg-[#e85d00] text-white shadow-[#FF6600]/30'
+              }`}
             >
-              {paymentMethod === 'wave' ? 'Payer avec Wave' : 'Payer avec Orange Money'}
+              {isWave ? 'Payer avec Wave' : 'Payer avec Orange Money'}
             </Button>
           </div>
         </div>

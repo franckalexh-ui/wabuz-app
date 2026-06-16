@@ -14,7 +14,9 @@ import {
   MapPin,
   CreditCard,
   Package,
+  Lock,
   X,
+  Shield,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -218,6 +220,19 @@ export function VendorOrders() {
                     </a>
                   </div>
 
+                  {/* Escrow Status Banner for Paid Orders */}
+                  {order.status === 'paid' && isExpanded && (
+                    <div className="bg-amber-50 rounded-xl p-3 flex items-start gap-2 mb-3">
+                      <Lock className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[11px] font-bold text-amber-800 block">Fonds en Escrow</span>
+                        <span className="text-[10px] text-amber-600 leading-relaxed">
+                          L'argent du client est bloqué en sécurité. Il sera débloqué automatiquement après confirmation de livraison.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Order Details Grid */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-white rounded-xl p-3">
@@ -279,9 +294,15 @@ export function VendorOrders() {
                   )}
 
                   {order.status === 'delivered' && (
-                    <div className="flex items-center justify-center gap-2 py-2 text-emerald-600">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span className="text-xs font-semibold">Commande livrée avec succès</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-center gap-2 py-2 text-emerald-600">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="text-xs font-semibold">Commande livrée avec succès</span>
+                      </div>
+                      <div className="bg-emerald-50 rounded-xl p-2.5 flex items-center gap-2">
+                        <Shield className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                        <span className="text-[10px] text-emerald-700 font-medium">Escrow libéré − Le vendeur a reçu les fonds</span>
+                      </div>
                     </div>
                   )}
                 </div>

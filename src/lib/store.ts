@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { Product, Order, DELIVERY_FEE, MOCK_ORDERS, PRODUCTS } from './data';
 
 export type AppMode = 'client' | 'vendor';
+export type EscrowStatus = 'idle' | 'collecting' | 'held' | 'releasing' | 'released';
+
 export type AppView =
   | 'home'
   | 'product-detail'
@@ -33,6 +35,8 @@ interface AppState {
   deliveryZone: string;
   paymentMethod: 'wave' | 'orange_money';
   paymentStatus: 'idle' | 'processing' | 'success';
+  escrowStatus: EscrowStatus;
+  lastOrderId: string | null;
 
   // Vendor State
   vendorStoreName: string;
@@ -57,6 +61,9 @@ interface AppState {
   setDeliveryZone: (zone: string) => void;
   setPaymentMethod: (method: 'wave' | 'orange_money') => void;
   setPaymentStatus: (status: 'idle' | 'processing' | 'success') => void;
+  setEscrowStatus: (status: EscrowStatus) => void;
+  setLastOrderId: (id: string | null) => void;
+  resetCheckout: () => void;
   setVendorStore: (name: string, phone: string, whatsapp: string) => void;
   addVendorProduct: (product: Product) => void;
   deleteVendorProduct: (productId: string) => void;
@@ -81,6 +88,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   deliveryZone: '',
   paymentMethod: 'wave',
   paymentStatus: 'idle',
+  escrowStatus: 'idle',
+  lastOrderId: null,
   vendorStoreName: '',
   vendorPhone: '',
   vendorWhatsapp: '',
@@ -130,13 +139,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     cart: state.cart.filter((item) => item.product.id !== productId),
   })),
 
-  clearCart: () => set({ cart: [] }),
+  clearCart: () => set({ cart: [], paymentStatus: 'idle', escrowStatus: 'idle', lastOrderId: null }),
 
   setDeliveryZone: (zone) => set({ deliveryZone: zone }),
 
   setPaymentMethod: (method) => set({ paymentMethod: method }),
 
   setPaymentStatus: (status) => set({ paymentStatus: status }),
+
+  setEscrowStatus: (status) => set({ escrowStatus: status }),
+
+  setLastOrderId: (id) => set({ lastOrderId: id }),
+
+  resetCheckout: () => set({ paymentStatus: 'idle', escrowStatus: 'idle', lastOrderId: null }),
 
   setVendorStore: (name, phone, whatsapp) =>
     set({ vendorStoreName: name, vendorPhone: phone, vendorWhatsapp: whatsapp, isStoreCreated: true }),
