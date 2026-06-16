@@ -87,3 +87,35 @@ Stage Summary:
 - Products: search, stock toggle, delete confirmation, view in store
 - Notification system: bell icon badge, bottom nav badges, toast notifications
 - Simulate orders demo feature for testing the full flow
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Client "Mes Commandes" view with Escrow confirmation flow
+
+Work Log:
+- Added `ClientOrder` interface to src/lib/data.ts with status (pending/paid/shipped/delivered) and escrowStatus (held/released)
+- Seeded `MOCK_CLIENT_ORDERS` with 2 sample orders (1 shipped/escrow-held, 1 delivered/escrow-released)
+- Extended Zustand store (src/lib/store.ts) with:
+  - `clientOrders`, `activeClientOrderFilter`, `confirmingReceiptId` state
+  - `addClientOrder(order)` — prepends a new order after checkout
+  - `confirmReceipt(orderId)` — marks order as delivered + releases escrow
+  - `setClientOrderFilter`, `setConfirmingReceiptId`, `getActiveOrdersCount` helpers
+- Built new component `src/components/client/ClientOrders.tsx`:
+  - Sticky header with "Mes Commandes" title + tab switcher (En cours / Terminées) with live counts
+  - Order cards showing product image, vendor, delivery zone, total amount, escrow lock/unlock badge
+  - 3-step progress indicator (Payé → Expédié → Livré) colored by status
+  - WhatsApp contact button (green icon, prefilled message)
+  - "Confirmer la réception" CTA only on shipped orders — triggers escrow release with confirm dialog
+  - Empty states for both tabs (Package icon for active, CheckCircle for delivered)
+- Wired `page.tsx` to route the `orders` view to `<ClientOrders />`
+- Updated `BottomNav.tsx` client nav: 3rd tab is now `Commandes` → `orders` view (was generic Home)
+- Updated `CheckoutFlow.tsx` payment success handler:
+  - On payment confirmed, builds a `ClientOrder` per cart item with status `paid` + escrow `held`
+  - Calls `addClientOrder()` so the order appears in "Mes Commandes" immediately
+- Verified: `npx eslint src/` passes with 0 warnings; `tsc` reports no errors in src/; dev server returns HTTP 200
+
+Stage Summary:
+- Client side now has a complete post-purchase loop: pay → see order in Mes Commandes → wait for shipping → confirm receipt → escrow released
+- Escrow semantics are visible to the buyer (Lock icon while held, Unlock icon after release)
+- Vendor and client order flows are connected through the same store, ready for end-to-end testing
