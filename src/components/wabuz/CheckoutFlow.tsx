@@ -1,7 +1,7 @@
 'use client';
 
 import { useAppStore, EscrowStatus } from '@/lib/store';
-import { formatPrice, DELIVERY_FEE, ClientOrder } from '@/lib/data';
+import { formatPrice, DELIVERY_FEE } from '@/lib/data';
 import { useState, useEffect, useCallback } from 'react';
 import {
   CheckCircle2,
@@ -182,33 +182,18 @@ export function CheckoutFlow() {
       const newOrderId = `WAB-${Date.now().toString(36).toUpperCase().slice(-6)}`;
       setLastOrderId(newOrderId);
 
-      // Create a client order for each item in the cart
-      const now = new Date().toISOString();
-      cart.forEach((item, idx) => {
-        const clientOrder: ClientOrder = {
-          id: idx === 0 ? newOrderId : `${newOrderId}-${idx + 1}`,
-          productName: item.product.name,
-          productImage: item.product.images[0],
-          vendorName: item.product.vendorName,
-          vendorPhone: item.product.vendorPhone,
-          deliveryZone,
-          totalAmount: item.product.price * item.quantity + DELIVERY_FEE,
-          status: 'paid', // payment confirmed, escrow held
-          escrowStatus: 'held',
-          paymentMethod,
-          quantity: item.quantity,
-          createdAt: now,
-        };
-        addClientOrder(clientOrder);
-      });
-
-      // ── Persist each order to Supabase ──────────────────────────
-      // Fire-and-forget: the local ClientOrder state has already been updated
-      // for instant UI feedback, so we don't block the success animation.
-      // The user's spec uses alert() on error, but we use a toast instead so
-      // the success screen keeps rendering (alert() would freeze the main thread).
+      // ── Persist each order to Supabase, then add to local store ──
+      // We do the inserts first so we can capture the returned UUID and store
+      // it on the local ClientOrder. That UUID is later used by the
+      // "Confirmer la réception" button to release the escrow in Supabase.
       (async () => {
-        for (const item of cart) {
+        const now = new Date().toISOString();
+
+        for (let idx = 0; idx < cart.length; idx++) {
+          const item = cart[idx];
+          const localId = idx === 0 ? newOrderId : `${newOrderId}-${idx + 1}`;
+          const totalAmount = item.product.price * item.quantity + DELIVERY_FEE;
+
           const { data, error } = await supabase
             .from('orders')
             .insert([
@@ -217,12 +202,13 @@ export function CheckoutFlow() {
                 store_id: item.product.vendorId, // for products fetched from Supabase this is the store UUID
                 client_phone: '2250700000000', // numéro factice pour l'instant
                 delivery_zone: deliveryZone,
-                total_amount: item.product.price * item.quantity + DELIVERY_FEE,
+                total_amount: totalAmount,
                 status: 'paid', // paiement confirmé
                 escrow_status: 'held', // argent bloqué en Escrow
                 payment_method: paymentMethod, // 'wave' ou 'orange_money'
               },
-            ]);
+            ])
+            .select();
 
           if (error) {
             console.error(
@@ -234,11 +220,43 @@ export function CheckoutFlow() {
               description: `Une erreur est survenue pendant l'enregistrement de la commande (${item.product.name}).`,
               variant: 'destructive',
             });
+            // Still add to local store so the user sees the order, but without
+            // a supabaseId — confirmation will only update local state.
+            addClientOrder({
+              id: localId,
+              productName: item.product.name,
+              productImage: item.product.images[0],
+              vendorName: item.product.vendorName,
+              vendorPhone: item.product.vendorPhone,
+              deliveryZone,
+              totalAmount,
+              status: 'paid',
+              escrowStatus: 'held',
+              paymentMethod,
+              quantity: item.quantity,
+              createdAt: now,
+            });
           } else {
             console.log(
               'Commande enregistrée avec succès dans Supabase pour',
               item.product.name,
             );
+            const insertedRow = Array.isArray(data) && data.length > 0 ? data[0] : null;
+            addClientOrder({
+              id: localId,
+              productName: item.product.name,
+              productImage: item.product.images[0],
+              vendorName: item.product.vendorName,
+              vendorPhone: item.product.vendorPhone,
+              deliveryZone,
+              totalAmount,
+              status: 'paid',
+              escrowStatus: 'held',
+              paymentMethod,
+              quantity: item.quantity,
+              createdAt: now,
+              supabaseId: insertedRow?.id ? String(insertedRow.id) : undefined,
+            });
           }
         }
       })();

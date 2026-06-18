@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Package, Truck, CheckCircle2, Lock, Unlock, MessageCircle } from 'lucide-react';
+import { Package, Truck, CheckCircle2, Lock, Unlock, MessageCircle, Loader2 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
+import { supabase } from '@/lib/supabaseClient';
+import { toast } from '@/hooks/use-toast';
 
 const formatFCFA = (amount: number) => `${new Intl.NumberFormat('fr-FR').format(amount)} FCFA`;
 
@@ -11,13 +13,67 @@ export default function ClientOrders() {
   const confirmReceipt = useAppStore((state) => state.confirmReceipt) || (() => {});
 
   const [activeTab, setActiveTab] = useState<'active' | 'delivered'>('active');
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const activeOrders = clientOrders.filter(o => o.status === 'pending' || o.status === 'paid' || o.status === 'shipped');
   const deliveredOrders = clientOrders.filter(o => o.status === 'delivered');
 
-  const handleConfirm = (orderId: string) => {
-    if (window.confirm('Confirmez-vous avoir reçu votre colis en bon état ? Les fonds seront libérés au vendeur.')) {
+  const handleConfirm = async (orderId: string) => {
+    if (!window.confirm('Confirmez-vous avoir reçu votre colis en bon état ? Les fonds seront libérés au vendeur.')) {
+      return;
+    }
+
+    const order = clientOrders.find((o) => o.id === orderId);
+    const supabaseId = order?.supabaseId;
+
+    setConfirmingId(orderId);
+
+    try {
+      // 1) Update Supabase first (if we have the UUID) — release escrow
+      if (supabaseId) {
+        const { error } = await supabase
+          .from('orders')
+          .update({
+            status: 'delivered',
+            escrow_status: 'released',
+          })
+          .eq('id', supabaseId);
+
+        if (error) {
+          console.error('Erreur lors de la libération de l’escrow dans Supabase:', error);
+          toast({
+            title: 'Erreur Supabase',
+            description: `Impossible de libérer l'escrow: ${error.message}`,
+            variant: 'destructive',
+          });
+          setConfirmingId(null);
+          return;
+        }
+        console.log('Escrow libéré dans Supabase pour la commande', supabaseId);
+      } else {
+        console.warn(
+          'confirmReceipt: pas de supabaseId pour la commande',
+          orderId,
+          '— mise à jour locale uniquement',
+        );
+      }
+
+      // 2) Then update local state for instant UI feedback
       confirmReceipt(orderId);
+
+      toast({
+        title: 'Réception confirmée 🎉',
+        description: "L'escrow a été libéré au vendeur.",
+      });
+    } catch (e) {
+      console.error('Erreur inattendue lors de la confirmation:', e);
+      toast({
+        title: 'Erreur inattendue',
+        description: 'Veuillez réessayer dans un instant.',
+        variant: 'destructive',
+      });
+    } finally {
+      setConfirmingId(null);
     }
   };
 
@@ -29,7 +85,13 @@ export default function ClientOrders() {
   const OrderCard = ({ order }: { order: any }) => {
     const isShipped = order.status === 'shipped';
     const isDelivered = order.status === 'delivered';
+    const isPaid = order.status === 'paid';
     const isEscrowHeld = order.escrowStatus === 'held';
+    // The client can confirm receipt as soon as the order is paid (escrow held).
+    // In the MVP flow there is no separate vendor-shipping step that auto-advances
+    // the status from 'paid' to 'shipped', so we accept both.
+    const canConfirm = (isPaid || isShipped) && !isDelivered;
+    const isConfirming = confirmingId === order.id;
 
     return (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4 transition-all hover:shadow-md">
@@ -43,7 +105,7 @@ export default function ClientOrders() {
             isShipped ? 'bg-blue-100 text-blue-700' :
             'bg-amber-100 text-amber-700'
           }`}>
-            {isDelivered ? 'Livré' : isShipped ? 'En livraison' : 'En attente'}
+            {isDelivered ? 'Livré' : isShipped ? 'En livraison' : 'Payé'}
           </div>
         </div>
 
@@ -102,13 +164,23 @@ export default function ClientOrders() {
             Contacter
           </button>
 
-          {isShipped && (
+          {canConfirm && (
             <button
               onClick={() => handleConfirm(order.id)}
-              className="flex-[2] flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors shadow-sm"
+              disabled={isConfirming}
+              className="flex-[2] flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-500 text-white rounded-xl text-sm font-bold hover:bg-emerald-600 transition-colors shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <CheckCircle2 size={16} />
-              Confirmer la réception
+              {isConfirming ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Confirmation…
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 size={16} />
+                  Confirmer la réception
+                </>
+              )}
             </button>
           )}
         </div>

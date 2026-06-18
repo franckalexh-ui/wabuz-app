@@ -249,3 +249,64 @@ Stage Summary:
 - The error path is graceful: if Supabase insert fails, a destructive toast is shown but the user still sees the success animation (no main-thread blocking)
 - Client phone is still hardcoded to `2250700000000` per the spec — should be replaced with the authenticated client's phone once Supabase Auth is wired in
 
+---
+Task ID: 7
+Agent: Main Agent
+Task: Enable "Confirmer la réception" after Wave/Orange Money payment + release escrow in Supabase
+
+Work Log:
+- Diagnosed the issue: two bugs
+  1. `ClientOrders.tsx` only showed the "Confirmer la réception" button when `order.status === 'shipped'`, but orders inserted via Supabase after Wave/OM payment have `status='paid'` (and the MVP has no auto-advance to 'shipped'), so the button never appeared
+  2. `confirmReceipt` in the Zustand store only updated local state, not Supabase — so even when the button did show (on the mock 'shipped' order), the escrow release was not persisted to the database
+- Added `supabaseId?: string` field to the `ClientOrder` interface in `src/lib/data.ts` — this stores the UUID of the matching row in the Supabase `orders` table, so we can target it for the update
+- Refactored the payment-confirmation handler in `src/components/wabuz/CheckoutFlow.tsx`:
+  - Removed the old pattern of `addClientOrder` (local-only, before Supabase insert) + fire-and-forget Supabase insert
+  - New pattern: insert into Supabase first with `.select()` to get back the inserted row, then `addClientOrder` with `supabaseId: insertedRow.id`
+  - On insert error, the local ClientOrder is still added (without `supabaseId`) so the user sees the order; confirmation will gracefully degrade to local-only
+- Updated `confirmReceipt` in `src/lib/store.ts`:
+  - Now reads the order's `supabaseId` from local state
+  - Updates local state immediately for instant UI feedback
+  - Fires `supabase.from('orders').update({ status: 'delivered', escrow_status: 'released' }).eq('id', supabaseId)` — fire-and-forget with success/error logging
+  - Logs a warning if no `supabaseId` (mock orders or Supabase insert failure) — local-only update
+- Rewrote `src/components/client/ClientOrders.tsx`:
+  - Replaced the `isShipped` check with `canConfirm = (isPaid || isShipped) && !isDelivered` — the button now appears for any paid (escrow held) order
+  - Status badge now shows "Payé" instead of "En attente" for paid orders
+  - `handleConfirm` is now `async`:
+    - Calls `window.confirm` first (kept the existing UX)
+    - Sets a `confirmingId` state to show a spinner on the clicked button
+    - Updates Supabase FIRST (`status='delivered', escrow_status='released'`) using the order's `supabaseId`
+    - On Supabase error: shows a destructive toast and aborts (no local state change)
+    - On success: calls `confirmReceipt(orderId)` to update local state + shows a success toast "Réception confirmée 🎉"
+    - Falls back gracefully if no `supabaseId` (mock orders) — local-only update
+  - The button shows a `Loader2` spinner + "Confirmation…" text while the network call is in flight, and is disabled to prevent double-clicks
+- Added `import { supabase } from '@/lib/supabaseClient';` and `import { toast } from '@/hooks/use-toast';` to `ClientOrders.tsx`
+- Added `import { Loader2 } from 'lucide-react';` to the icon imports
+
+Verification:
+- ESLint clean on all modified files (`ClientOrders.tsx`, `CheckoutFlow.tsx`, `store.ts`, `data.ts`)
+- Dev server: HTTP 200
+- End-to-end browser test:
+  1. Opened home page, clicked Écouteurs Bluetooth → checkout → Cocody → Wave → confirm
+  2. "Argent bloqué en Escrow" appeared after ~3.5s
+  3. Console: `[log] Commande enregistrée avec succès dans Supabase pour Écouteurs Bluetooth` (new supabaseId captured)
+  4. Navigated to "Mes Commandes" via bottom nav
+  5. **The "Confirmer la réception" button now appears** on both the new Écouteurs order AND the existing iPhone 13 Pro order (both `status=paid`)
+  6. Counters: "En cours (2) / Terminées (1)"
+  7. Clicked "Confirmer la réception" on Écouteurs → confirm dialog → accept
+  8. Counters updated instantly: "En cours (1) / Terminées (2)" — local state updated
+  9. Console: `[log] Escrow libéré dans Supabase pour la commande 54f0210f-...`
+  10. Supabase check: order #9 (Écouteurs, 16500 FCFA, Cocody) is now `status=delivered, escrow=released` ✅
+  11. Switched to "Terminées" tab → Écouteurs Bluetooth shown with "Escrow libéré" badge, no confirm button
+  12. Repeated on iPhone 13 Pro (mock order `cmd_001` without supabaseId) → confirmation succeeded locally, console warned `pas de supabaseId pour la commande cmd_001 — mise à jour locale uniquement` — graceful degradation works
+  13. Final state: "En cours (0) / Terminées (3)"
+- Screenshot saved at `/home/z/my-project/download/supabase-confirm-receipt.png`
+
+Stage Summary:
+- The full escrow lifecycle is now functional end-to-end with Supabase persistence: pay (Wave/OM) → escrow held → client confirms receipt → escrow released
+- The "Confirmer la réception" button appears on every paid order (not just shipped ones), which fits the MVP testing flow
+- The link between local ClientOrder and Supabase order is now a proper UUID stored in `ClientOrder.supabaseId`, propagated from the insert response
+- Backwards compatible: existing mock orders without `supabaseId` still work — confirmation just updates local state with a console warning
+- Network feedback: spinner on the button during the Supabase update, toast on success/error, no double-click possible
+- Next step would be to add a vendor-side "Expédier" action that updates `status: 'paid' → 'shipped'` in Supabase, so the timeline (Payé → Expédié → Livré) becomes meaningful
+
+

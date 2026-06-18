@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Product, Order, ClientOrder, DELIVERY_FEE, MOCK_ORDERS, MOCK_CLIENT_ORDERS, PRODUCTS } from './data';
+import { supabase } from './supabaseClient';
 
 export type AppMode = 'client' | 'vendor';
 export type EscrowStatus = 'idle' | 'collecting' | 'held' | 'releasing' | 'released';
@@ -243,13 +244,52 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({ clientOrders: [order, ...state.clientOrders] })),
 
   confirmReceipt: (orderId) => {
+    const order = get().clientOrders.find((o) => o.id === orderId);
+    const supabaseId = order?.supabaseId;
+
+    // 1) Update local state immediately for instant UI feedback
     set((state) => ({
-      clientOrders: state.clientOrders.map((order) =>
-        order.id === orderId
-          ? { ...order, status: 'delivered' as const, escrowStatus: 'released' as const }
-          : order
+      clientOrders: state.clientOrders.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              status: 'delivered' as const,
+              escrowStatus: 'released' as const,
+              deliveredAt: new Date().toISOString(),
+            }
+          : o
       ),
     }));
+
+    // 2) Persist the change to Supabase (release escrow) if we have the row UUID
+    if (supabaseId) {
+      supabase
+        .from('orders')
+        .update({
+          status: 'delivered',
+          escrow_status: 'released',
+        })
+        .eq('id', supabaseId)
+        .then(({ error }) => {
+          if (error) {
+            console.error(
+              'Erreur lors de la libération de l’escrow dans Supabase:',
+              error,
+            );
+          } else {
+            console.log(
+              'Escrow libéré dans Supabase pour la commande',
+              supabaseId,
+            );
+          }
+        });
+    } else {
+      console.warn(
+        'confirmReceipt: pas de supabaseId pour la commande',
+        orderId,
+        '— mise à jour locale uniquement',
+      );
+    }
   },
 
   setClientOrderFilter: (filter) => set({ activeClientOrderFilter: filter }),

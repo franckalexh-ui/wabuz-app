@@ -66,6 +66,9 @@ export interface ClientOrder {
   quantity?: number;
   createdAt?: string;
   deliveredAt?: string;
+  // UUID of the matching row in Supabase `orders` table (when the order was
+  // persisted). Used to update Supabase on confirm-receipt.
+  supabaseId?: string;
 }
 
 export const DELIVERY_ZONES = [
