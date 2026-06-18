@@ -191,3 +191,61 @@ Stage Summary:
 - A vendor can fill the Add Product form, click Publish, and the product is immediately persisted in Supabase AND visible to clients on the home page (after a refresh or remount)
 - The implementation matches the user's spec exactly: insert with `name`, `description`, `price`, `image_url`, `category`, `store_id`; on error → error toast + console.error; on success → success toast + form reset (via the "Ajouter un autre produit" button)
 - Bonus: the inserted row is also pushed into the local Zustand store so the vendor sees the new product instantly in their "Mes Produits" list without waiting for a refetch
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Persist orders to Supabase when payment is confirmed in the checkout flow
+
+Work Log:
+- Added imports to `src/components/wabuz/CheckoutFlow.tsx`:
+  - `import { toast } from '@/hooks/use-toast';`
+  - `import { supabase } from '@/lib/supabaseClient';`
+- Modified the payment-confirmation handler inside the `useEffect` `setTimeout(3500ms)` callback (where `setEscrowStatus('held')` is called = payment confirmed). After the existing `addClientOrder` loop, added a fire-and-forget async IIFE that iterates over `cart` and inserts one row per item into the `orders` table:
+  ```ts
+  for (const item of cart) {
+    const { data, error } = await supabase.from('orders').insert([{
+      product_id: item.product.id,
+      store_id: item.product.vendorId,
+      client_phone: '2250700000000',
+      delivery_zone: deliveryZone,
+      total_amount: item.product.price * item.quantity + DELIVERY_FEE,
+      status: 'paid',
+      escrow_status: 'held',
+      payment_method: paymentMethod,
+    }]);
+    if (error) {
+      console.error("Erreur lors de l'enregistrement de la commande:", error);
+      toast({ title: 'Commande non sauvegardée', description: `...${item.product.name}`, variant: 'destructive' });
+    } else {
+      console.log('Commande enregistrée avec succès dans Supabase pour', item.product.name);
+    }
+  }
+  ```
+- Used the existing variable names from the component: `cart` (instead of `product`), `deliveryZone` (instead of `selectedZone`), `paymentMethod` (instead of `selectedPaymentMethod`). Each cart item exposes `item.product` and `item.quantity`.
+- Adapted the spec to the cart-based reality: the user's spec assumed a single product, but the actual checkout supports a cart, so I insert one order row per cart item (matching the existing `addClientOrder` loop pattern).
+- Replaced the `alert()` from the spec with a destructive `toast` for the error path — `alert()` blocks the main thread and would freeze the success animation. The `console.error` and `console.log` calls are kept exactly as specified.
+- Found and fixed a critical bug in `src/components/wabuz/ClientHome.tsx`: the Supabase row normalization was reading `row.vendor_id` but the actual column is `row.store_id`. As a result, `item.product.vendorId` was an empty string, causing `invalid input syntax for type uuid: ""` errors when inserting into `orders.store_id` (a UUID FK). Fixed by reading `row.store_id ?? row.vendor_id ?? row.vendorId`. The fix is applied in both places: the `useEffect` fetch and the error-state retry button (which had duplicated logic).
+- Verification:
+  - ESLint clean on both `CheckoutFlow.tsx` and `ClientHome.tsx`
+  - Dev server: HTTP 200
+  - Direct REST probe (`scripts/test_orders_table.mjs`): confirmed the `orders` table exists with the expected schema (`id, product_id, store_id, client_phone, delivery_zone, total_amount, status, escrow_status, payment_method, created_at`) and accepts inserts with HTTP 201
+  - Browser test 1 — Wave payment:
+    - Opened Écouteurs Bluetooth (15 000 FCFA) → checkout → selected Plateau → Wave → confirm
+    - "Argent bloqué en Escrow" appeared after ~3.5s
+    - Console: `[log] Commande enregistrée avec succès dans Supabase pour Écouteurs Bluetooth`
+    - Supabase: orders count went from 2 → 3, new row with `product_id=9d0d60f7`, `store_id=a1b2c3d4`, `zone=Plateau`, `total=16500`, `status=paid`, `escrow_status=held`, `payment_method=wave`
+  - Browser test 2 — Orange Money payment:
+    - Opened Sac à Dos Urbain Test (12 000 FCFA) → checkout → selected Adjamé → Orange Money → confirm
+    - "Argent bloqué en Escrow" appeared
+    - Console: `[log] Commande enregistrée avec succès dans Supabase pour Sac à Dos Urbain Test`
+    - Supabase: orders count went from 4 → 5, new row with `product_id=702059b2`, `store_id=a1b2c3d4`, `zone=Adjamé`, `total=13500`, `status=paid`, `escrow_status=held`, `payment_method=orange_money`
+  - Screenshot saved at `/home/z/my-project/download/supabase-checkout-escrow-held.png`
+
+Stage Summary:
+- The full e-commerce loop is now wired to real data: browse products (Supabase) → add to cart → checkout → simulated Wave/Orange Money payment → order persisted in Supabase with `status=paid` + `escrow_status=held`
+- Both payment methods (Wave and Orange Money) are tested and working
+- The vendor's `store_id` UUID is correctly propagated from `products.store_id` (Supabase) → `Product.vendorId` (local) → `orders.store_id` (Supabase), ensuring referential integrity
+- The error path is graceful: if Supabase insert fails, a destructive toast is shown but the user still sees the success animation (no main-thread blocking)
+- Client phone is still hardcoded to `2250700000000` per the spec — should be replaced with the authenticated client's phone once Supabase Auth is wired in
+

@@ -42,8 +42,8 @@ export function ClientHome() {
             : row.image_url
               ? [row.image_url]
               : [],
-          vendorId: String(row.vendor_id ?? row.vendorId ?? ''),
-          vendorName: row.vendor_name ?? row.vendorName ?? 'Boutique WABUZ',
+          vendorId: String(row.store_id ?? row.vendor_id ?? row.vendorId ?? ''),
+          vendorName: row.vendor_name ?? row.store_name ?? row.vendorName ?? 'Boutique WABUZ',
           vendorRating: Number(row.vendor_rating ?? row.vendorRating ?? 0),
           vendorPhone: row.vendor_phone ?? row.vendorPhone ?? '',
           vendorWhatsapp: row.vendor_whatsapp ?? row.vendorWhatsapp ?? '',
@@ -200,8 +200,8 @@ export function ClientHome() {
                         : row.image_url
                           ? [row.image_url]
                           : [],
-                      vendorId: String(row.vendor_id ?? row.vendorId ?? ''),
-                      vendorName: row.vendor_name ?? row.vendorName ?? 'Boutique WABUZ',
+                      vendorId: String(row.store_id ?? row.vendor_id ?? row.vendorId ?? ''),
+                      vendorName: row.vendor_name ?? row.store_name ?? row.vendorName ?? 'Boutique WABUZ',
                       vendorRating: Number(row.vendor_rating ?? row.vendorRating ?? 0),
                       vendorPhone: row.vendor_phone ?? row.vendorPhone ?? '',
                       vendorWhatsapp: row.vendor_whatsapp ?? row.vendorWhatsapp ?? '',

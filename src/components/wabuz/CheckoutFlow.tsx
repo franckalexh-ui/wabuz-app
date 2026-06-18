@@ -16,6 +16,8 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabaseClient';
 
 // ── Wave / Orange Money Brand Colors ─────────────────────────
 const WAVE_COLOR = '#1DC3E0';
@@ -199,6 +201,47 @@ export function CheckoutFlow() {
         };
         addClientOrder(clientOrder);
       });
+
+      // ── Persist each order to Supabase ──────────────────────────
+      // Fire-and-forget: the local ClientOrder state has already been updated
+      // for instant UI feedback, so we don't block the success animation.
+      // The user's spec uses alert() on error, but we use a toast instead so
+      // the success screen keeps rendering (alert() would freeze the main thread).
+      (async () => {
+        for (const item of cart) {
+          const { data, error } = await supabase
+            .from('orders')
+            .insert([
+              {
+                product_id: item.product.id,
+                store_id: item.product.vendorId, // for products fetched from Supabase this is the store UUID
+                client_phone: '2250700000000', // numéro factice pour l'instant
+                delivery_zone: deliveryZone,
+                total_amount: item.product.price * item.quantity + DELIVERY_FEE,
+                status: 'paid', // paiement confirmé
+                escrow_status: 'held', // argent bloqué en Escrow
+                payment_method: paymentMethod, // 'wave' ou 'orange_money'
+              },
+            ]);
+
+          if (error) {
+            console.error(
+              "Erreur lors de l'enregistrement de la commande:",
+              error,
+            );
+            toast({
+              title: 'Commande non sauvegardée',
+              description: `Une erreur est survenue pendant l'enregistrement de la commande (${item.product.name}).`,
+              variant: 'destructive',
+            });
+          } else {
+            console.log(
+              'Commande enregistrée avec succès dans Supabase pour',
+              item.product.name,
+            );
+          }
+        }
+      })();
 
       setTimeout(() => setStep('escrow-held'), 600);
     }, 3500);
