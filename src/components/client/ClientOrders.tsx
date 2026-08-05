@@ -3,14 +3,13 @@
 import React, { useState } from 'react';
 import { Package, Truck, CheckCircle2, Lock, Unlock, MessageCircle, Loader2 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
-import { supabase } from '@/lib/supabaseClient';
 import { toast } from '@/hooks/use-toast';
 
 const formatFCFA = (amount: number) => `${new Intl.NumberFormat('fr-FR').format(amount)} FCFA`;
 
 export default function ClientOrders() {
   const clientOrders = useAppStore((state) => state.clientOrders) || [];
-  const confirmReceipt = useAppStore((state) => state.confirmReceipt) || (() => {});
+  const confirmReceipt = useAppStore((state) => state.confirmReceipt);
 
   const [activeTab, setActiveTab] = useState<'active' | 'delivered'>('active');
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -18,47 +17,17 @@ export default function ClientOrders() {
   const activeOrders = clientOrders.filter(o => o.status === 'pending' || o.status === 'paid' || o.status === 'shipped');
   const deliveredOrders = clientOrders.filter(o => o.status === 'delivered');
 
-  const handleConfirm = async (orderId: string) => {
+  const handleConfirm = (orderId: string) => {
     if (!window.confirm('Confirmez-vous avoir reçu votre colis en bon état ? Les fonds seront libérés au vendeur.')) {
       return;
     }
 
-    const order = clientOrders.find((o) => o.id === orderId);
-    const supabaseId = order?.supabaseId;
-
     setConfirmingId(orderId);
 
     try {
-      // 1) Update Supabase first (if we have the UUID) — release escrow
-      if (supabaseId) {
-        const { error } = await supabase
-          .from('orders')
-          .update({
-            status: 'delivered',
-            escrow_status: 'released',
-          })
-          .eq('id', supabaseId);
-
-        if (error) {
-          console.error('Erreur lors de la libération de l’escrow dans Supabase:', error);
-          toast({
-            title: 'Erreur Supabase',
-            description: `Impossible de libérer l'escrow: ${error.message}`,
-            variant: 'destructive',
-          });
-          setConfirmingId(null);
-          return;
-        }
-        console.log('Escrow libéré dans Supabase pour la commande', supabaseId);
-      } else {
-        console.warn(
-          'confirmReceipt: pas de supabaseId pour la commande',
-          orderId,
-          '— mise à jour locale uniquement',
-        );
-      }
-
-      // 2) Then update local state for instant UI feedback
+      // Delegate everything to the store action which does:
+      //  1) Optimistic local state update (instant UI feedback)
+      //  2) Fire-and-forget Supabase persistence (if configured)
       confirmReceipt(orderId);
 
       toast({

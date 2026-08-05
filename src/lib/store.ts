@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { Product, Order, ClientOrder, DELIVERY_FEE, MOCK_ORDERS, MOCK_CLIENT_ORDERS, PRODUCTS } from './data';
-import { supabase } from './supabaseClient';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 export type AppMode = 'client' | 'vendor';
 export type EscrowStatus = 'idle' | 'collecting' | 'held' | 'releasing' | 'released';
@@ -261,7 +261,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
     }));
 
-    // 2) Persist the change to Supabase (release escrow) if we have the row UUID
+    // 2) Persist the change to Supabase (release escrow) if configured
+    if (!isSupabaseConfigured) {
+      console.warn(
+        'confirmReceipt: Supabase non configuré — mise à jour locale uniquement',
+      );
+      return;
+    }
+
     if (supabaseId) {
       supabase
         .from('orders')
