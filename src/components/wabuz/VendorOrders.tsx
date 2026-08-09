@@ -2,6 +2,7 @@
 
 import { formatPrice, formatDate, DELIVERY_FEE } from '@/lib/data';
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
+import { useAppStore } from '@/lib/store';
 import {
   Clock,
   DollarSign,
@@ -95,6 +96,7 @@ const FILTERS: { key: OrderFilter; label: string }[] = [
 
 // ── Component ────────────────────────────────────────────────
 export function VendorOrders() {
+  const { setVendorPendingCount } = useAppStore();
   const [orders, setOrders] = useState<SupabaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,10 +125,13 @@ export function VendorOrders() {
       setError(fetchError.message);
       setOrders([]);
     } else if (data) {
-      setOrders(data as SupabaseOrder[]);
+      const fetched = data as SupabaseOrder[];
+      setOrders(fetched);
+      // Sync pending count with the global store (for BottomNav badge)
+      setVendorPendingCount(fetched.filter((o) => o.status === 'pending').length);
     }
     setLoading(false);
-  }, []);
+  }, [setVendorPendingCount]);
 
   useEffect(() => {
     fetchOrders();
@@ -177,6 +182,10 @@ export function VendorOrders() {
       title: statusLabels[nextStatus],
       description: `La commande #${orderId.slice(-4)} a été mise à jour`,
     });
+    // Refresh pending count after status change
+    setVendorPendingCount(
+      orders.filter((o) => o.id !== orderId ? o.status === 'pending' : nextStatus === 'pending').length
+    );
     setActionLoading(null);
   };
 

@@ -12,9 +12,7 @@ interface NavItem {
 }
 
 export function BottomNav() {
-  const { mode, view, setView, newOrderCount, vendorOrders } = useAppStore();
-
-  const pendingCount = vendorOrders.filter((o) => o.status === 'pending').length;
+  const { mode, view, setView, newOrderCount, vendorPendingCount } = useAppStore();
 
   const clientNavItems: NavItem[] = [
     { icon: <Home className="w-5 h-5" />, label: 'Accueil', view: 'home' },
@@ -26,7 +24,7 @@ export function BottomNav() {
   const vendorNavItems: NavItem[] = [
     { icon: <Home className="w-5 h-5" />, label: 'Tableau', view: 'vendor-dashboard', badge: newOrderCount > 0 ? newOrderCount : undefined },
     { icon: <Grid3X3 className="w-5 h-5" />, label: 'Produits', view: 'vendor-products' },
-    { icon: <ShoppingBag className="w-5 h-5" />, label: 'Commandes', view: 'vendor-orders', badge: pendingCount > 0 ? pendingCount : undefined },
+    { icon: <ShoppingBag className="w-5 h-5" />, label: 'Commandes', view: 'vendor-orders', badge: vendorPendingCount > 0 ? vendorPendingCount : undefined },
     { icon: <User className="w-5 h-5" />, label: 'Profil', view: 'vendor-dashboard' },
   ];
 

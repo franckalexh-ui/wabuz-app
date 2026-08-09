@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Product, Order, ClientOrder, DELIVERY_FEE, MOCK_ORDERS, MOCK_CLIENT_ORDERS, PRODUCTS } from './data';
+import { Product, Order, ClientOrder, DELIVERY_FEE, MOCK_CLIENT_ORDERS, PRODUCTS } from './data';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 export type AppMode = 'client' | 'vendor';
@@ -46,6 +46,7 @@ interface AppState {
   vendorWhatsapp: string;
   vendorProducts: Product[];
   vendorOrders: Order[];
+  vendorPendingCount: number;
   isStoreCreated: boolean;
   newOrderCount: number; // unread orders count
   vendorRevenue: number;
@@ -76,6 +77,7 @@ interface AppState {
   deleteVendorProduct: (productId: string) => void;
   toggleProductStock: (productId: string) => void;
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
+  setVendorPendingCount: (count: number) => void;
   setIsStoreCreated: (created: boolean) => void;
   clearNewOrderCount: () => void;
   simulateNewOrder: () => void;
@@ -108,7 +110,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   vendorPhone: '',
   vendorWhatsapp: '',
   vendorProducts: [...PRODUCTS.slice(0, 5)], // Vendor starts with 5 products
-  vendorOrders: [...MOCK_ORDERS],
+  vendorOrders: [],
+  vendorPendingCount: 0,
   isStoreCreated: false,
   newOrderCount: 1,
   vendorRevenue: 0,
@@ -194,6 +197,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         order.id === orderId ? { ...order, status } : order
       ),
     })),
+
+  setVendorPendingCount: (count) => set({ vendorPendingCount: count }),
 
   setIsStoreCreated: (created) => set({ isStoreCreated: created }),
 

@@ -50,7 +50,7 @@ interface SupabaseOrder {
 const STORE_ID = 'a1b2c3d4-1234-5678-9101-e11213141516';
 
 export function VendorDashboard() {
-  const { isStoreCreated, vendorStoreName, setView, vendorProducts, newOrderCount, clearNewOrderCount } = useAppStore();
+  const { isStoreCreated, vendorStoreName, setView, vendorProducts, newOrderCount, clearNewOrderCount, setVendorPendingCount } = useAppStore();
 
   // ── Real orders from Supabase ────────────────────────────
   const [orders, setOrders] = useState<SupabaseOrder[]>([]);
@@ -64,11 +64,21 @@ export function VendorDashboard() {
       .select('*, products(name, image_url, price)')
       .eq('store_id', STORE_ID)
       .order('created_at', { ascending: false });
-    if (data) setOrders(data as SupabaseOrder[]);
+    if (data) {
+      const fetched = data as SupabaseOrder[];
+      setOrders(fetched);
+      // Sync pending count with the global store (for BottomNav badge)
+      setVendorPendingCount(fetched.filter((o) => o.status === 'pending').length);
+    }
     setOrdersLoading(false);
-  }, []);
+  }, [setVendorPendingCount]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  // Update pending count after quick action
+  const refreshPendingCount = (updatedOrders: SupabaseOrder[]) => {
+    setVendorPendingCount(updatedOrders.filter((o) => o.status === 'pending').length);
+  };
 
   // Clear notification badge when viewing dashboard
   useEffect(() => {
@@ -93,6 +103,10 @@ export function VendorDashboard() {
     }
     const labels = { paid: 'Paiement confirmé', shipped: 'Commande expédiée' };
     toast({ title: labels[nextStatus], description: `Commande #${orderId.slice(-4)} mise à jour` });
+    // Refresh pending count after action
+    refreshPendingCount(
+      orders.map((o) => o.id === orderId ? { ...o, status: nextStatus } : o)
+    );
   };
 
   // Compute stats from Supabase orders
