@@ -2,6 +2,7 @@
 
 import { useAppStore } from '@/lib/store';
 import { formatPrice, DELIVERY_FEE, CATEGORIES } from '@/lib/data';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import {
   Package,
   DollarSign,
@@ -20,13 +21,54 @@ import {
   Sparkles,
   Zap,
   MessageCircle,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
 
+/** Supabase order shape with product join. */
+interface SupabaseOrder {
+  id: string;
+  product_id: string;
+  store_id: string;
+  client_phone: string;
+  delivery_zone: string;
+  total_amount: number;
+  status: 'pending' | 'paid' | 'shipped' | 'delivered';
+  escrow_status: 'held' | 'released';
+  payment_method: 'wave' | 'orange_money';
+  created_at: string;
+  products: {
+    name: string;
+    image_url: string | null;
+    price: number;
+  } | null;
+}
+
+const STORE_ID = 'a1b2c3d4-1234-5678-9101-e11213141516';
+
 export function VendorDashboard() {
-  const { isStoreCreated, vendorStoreName, setView, vendorOrders, vendorProducts, newOrderCount, clearNewOrderCount, simulateNewOrder } = useAppStore();
+  const { isStoreCreated, vendorStoreName, setView, vendorProducts, newOrderCount, clearNewOrderCount } = useAppStore();
+
+  // ── Real orders from Supabase ────────────────────────────
+  const [orders, setOrders] = useState<SupabaseOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
+
+  const fetchOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    if (!isSupabaseConfigured) { setOrdersLoading(false); return; }
+    const { data } = await supabase
+      .from('orders')
+      .select('*, products(name, image_url, price)')
+      .eq('store_id', STORE_ID)
+      .order('created_at', { ascending: false });
+    if (data) setOrders(data as SupabaseOrder[]);
+    setOrdersLoading(false);
+  }, []);
+
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
   // Clear notification badge when viewing dashboard
   useEffect(() => {
@@ -37,19 +79,35 @@ export function VendorDashboard() {
     return <StoreSetup />;
   }
 
-  // Compute stats from live store data
-  const totalRevenue = vendorOrders
+  // ── Action: update status in Supabase ────────────────────
+  const handleQuickAction = async (orderId: string, nextStatus: 'paid' | 'shipped', revertStatus: 'pending' | 'paid') => {
+    // Optimistic UI
+    setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, status: nextStatus } : o));
+    if (isSupabaseConfigured) {
+      const { error } = await supabase.from('orders').update({ status: nextStatus }).eq('id', orderId);
+      if (error) {
+        setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, status: revertStatus } : o));
+        toast({ title: 'Erreur', description: error.message, variant: 'destructive' });
+        return;
+      }
+    }
+    const labels = { paid: 'Paiement confirmé', shipped: 'Commande expédiée' };
+    toast({ title: labels[nextStatus], description: `Commande #${orderId.slice(-4)} mise à jour` });
+  };
+
+  // Compute stats from Supabase orders
+  const totalRevenue = orders
     .filter((o) => o.status === 'paid' || o.status === 'shipped' || o.status === 'delivered')
-    .reduce((sum, o) => sum + o.totalPrice, 0);
-  const pendingOrders = vendorOrders.filter((o) => o.status === 'pending').length;
-  const paidOrders = vendorOrders.filter((o) => o.status === 'paid').length;
-  const shippedOrders = vendorOrders.filter((o) => o.status === 'shipped').length;
-  const totalOrders = vendorOrders.length;
+    .reduce((sum, o) => sum + o.total_amount, 0);
+  const pendingOrders = orders.filter((o) => o.status === 'pending').length;
+  const paidOrders = orders.filter((o) => o.status === 'paid').length;
+  const shippedOrders = orders.filter((o) => o.status === 'shipped').length;
+  const totalOrders = orders.length;
   const productCount = vendorProducts.length;
   const inStockCount = vendorProducts.filter((p) => p.inStock).length;
 
   // Recent orders (latest 3)
-  const recentOrders = vendorOrders.slice(0, 3);
+  const recentOrders = orders.slice(0, 3);
 
   return (
     <div className="pb-6">
@@ -178,28 +236,7 @@ export function VendorDashboard() {
         </button>
       </div>
 
-      {/* Simulate New Order Button (Demo) */}
-      <div className="px-4 mb-5">
-        <button
-          onClick={() => {
-            simulateNewOrder();
-            toast({
-              title: 'Nouvelle commande !',
-              description: 'Un client vient de passer une commande',
-            });
-          }}
-          className="w-full flex items-center gap-3 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 rounded-2xl p-3.5 hover:from-purple-100 hover:to-pink-100 transition-all"
-        >
-          <div className="w-9 h-9 rounded-xl bg-purple-500 flex items-center justify-center">
-            <Zap className="w-4 h-4 text-white" />
-          </div>
-          <div className="flex-1 text-left">
-            <span className="text-sm font-semibold text-gray-900 block">Simuler une commande</span>
-            <span className="text-[11px] text-gray-400">Démo — génère une commande aléatoire</span>
-          </div>
-          <Sparkles className="w-4 h-4 text-purple-400" />
-        </button>
-      </div>
+
 
       {/* Incoming Orders Section */}
       <div className="px-4">
@@ -220,44 +257,53 @@ export function VendorDashboard() {
           </button>
         </div>
 
-        {recentOrders.length > 0 ? (
+        {ordersLoading ? (
+          <div className="py-8 flex items-center justify-center">
+            <Loader2 className="w-6 h-6 text-orange-500 animate-spin" />
+          </div>
+        ) : recentOrders.length > 0 ? (
           <div className="space-y-2.5">
-            {recentOrders.map((order) => (
+            {recentOrders.map((order) => {
+              const product = order.products;
+              const productImage = product?.image_url || '';
+              const productName = product?.name || 'Produit';
+              return (
               <div
                 key={order.id}
                 className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm"
               >
                 <div className="p-3.5 flex items-center gap-3">
                   <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                    <img
-                      src={order.productImage}
-                      alt={order.productName}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
+                    {productImage ? (
+                      <img
+                        src={productImage}
+                        alt={productName}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="w-6 h-6 text-gray-300" />
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{order.productName}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{productName}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <OrderStatusBadge status={order.status} />
-                      <span className="text-[11px] text-gray-400">{order.deliveryZone}</span>
+                      <span className="text-[11px] text-gray-400">{order.delivery_zone}</span>
                     </div>
                     <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-[11px] text-gray-400">{order.buyerPhone}</span>
-                      <span className="text-gray-200">·</span>
-                      <span className="text-[11px] text-gray-400">x{order.quantity}</span>
+                      <span className="text-[11px] text-gray-400">{order.client_phone}</span>
                     </div>
                   </div>
                   <div className="text-right flex flex-col items-end gap-1.5">
-                    <span className="text-sm font-bold text-gray-900">{formatPrice(order.totalPrice)}</span>
+                    <span className="text-sm font-bold text-gray-900">{formatPrice(order.total_amount)}</span>
                     {order.status === 'pending' && (
                       <button
-                        onClick={() => {
-                          useAppStore.getState().updateOrderStatus(order.id, 'paid');
-                          toast({ title: 'Paiement confirmé', description: `Commande ${order.id.slice(-4)} confirmée` });
-                        }}
+                        onClick={() => handleQuickAction(order.id, 'paid', 'pending')}
                         className="px-2.5 py-1 rounded-lg bg-blue-500 text-white text-[10px] font-bold hover:bg-blue-600 transition-colors"
                       >
                         Confirmer
@@ -265,10 +311,7 @@ export function VendorDashboard() {
                     )}
                     {order.status === 'paid' && (
                       <button
-                        onClick={() => {
-                          useAppStore.getState().updateOrderStatus(order.id, 'shipped');
-                          toast({ title: 'Commande expédiée', description: `Commande ${order.id.slice(-4)} en route` });
-                        }}
+                        onClick={() => handleQuickAction(order.id, 'shipped', 'paid')}
                         className="px-2.5 py-1 rounded-lg bg-purple-500 text-white text-[10px] font-bold hover:bg-purple-600 transition-colors"
                       >
                         Expédier
@@ -277,7 +320,8 @@ export function VendorDashboard() {
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="bg-gray-50 rounded-2xl py-10 text-center">
