@@ -76,7 +76,7 @@ const STATUS_CONFIG: Record<OrderStatus, {
     color: 'text-purple-700',
     bgColor: 'bg-purple-50',
     icon: <Truck className="w-4 h-4 text-purple-500" />,
-    nextAction: { label: 'Confirmer la livraison', color: 'bg-emerald-500 hover:bg-emerald-600', nextStatus: 'delivered' },
+    // Vendors CANNOT mark as delivered — only the client can confirm receipt
   },
   delivered: {
     label: 'Livré',
@@ -355,6 +355,20 @@ export function VendorOrders() {
                       </button>
                     </div>
                   )}
+
+                  {/* Shipped — waiting for client confirmation */}
+                  {order.status === 'shipped' && !isExpanded && (
+                    <div className="mt-3 flex items-center gap-2 bg-purple-50 rounded-xl px-3 py-2.5">
+                      <Clock className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
+                      <span className="text-xs font-medium text-purple-700">En attente de confirmation du client</span>
+                      <button
+                        onClick={() => setExpandedOrder(order.id)}
+                        className="ml-auto px-3 py-1 rounded-lg border border-gray-100 text-xs text-gray-500 font-medium hover:bg-gray-50 transition-colors"
+                      >
+                        Détails
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Expanded Details */}
@@ -453,7 +467,7 @@ export function VendorOrders() {
                       </div>
                     </div>
 
-                    {/* Action Buttons */}
+                    {/* Action Buttons — vendor can only advance to paid/shipped */}
                     {config.nextAction && (
                       <button
                         onClick={() => handleAction(order.id, config.nextAction!.nextStatus)}
@@ -469,6 +483,14 @@ export function VendorOrders() {
                           config.nextAction.label
                         )}
                       </button>
+                    )}
+
+                    {/* Shipped — waiting for client to confirm receipt */}
+                    {order.status === 'shipped' && (
+                      <div className="flex items-center gap-2 bg-purple-50 rounded-xl px-3 py-2.5">
+                        <Clock className="w-4 h-4 text-purple-500 flex-shrink-0" />
+                        <span className="text-xs font-medium text-purple-700">En attente de confirmation du client</span>
+                      </div>
                     )}
 
                     {order.status === 'delivered' && (

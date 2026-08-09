@@ -331,6 +331,11 @@ export function VendorDashboard() {
                         Expédier
                       </button>
                     )}
+                    {order.status === 'shipped' && (
+                      <span className="px-2 py-1 rounded-lg bg-purple-50 text-purple-700 text-[9px] font-medium">
+                        ⏳ Attente client
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
