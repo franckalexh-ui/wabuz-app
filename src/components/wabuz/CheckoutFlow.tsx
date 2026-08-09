@@ -14,6 +14,8 @@ import {
   X,
   AlertTriangle,
   ChevronDown,
+  Smartphone,
+  KeyRound,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -149,6 +151,43 @@ export function CheckoutFlow() {
   const [showEscrowDetail, setShowEscrowDetail] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
 
+  // ── OTP / Phone Verification State ──────────────────────
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [otpCode, setOtpCode] = useState<string | null>(null);
+  const [otpInput, setOtpInput] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [showOtpBanner, setShowOtpBanner] = useState(false);
+
+  // Validate Ivorian phone format: 07/05/01 XX XX XX XX
+  const isPhoneValid = /^(07|05|01)\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{2}$/.test(phoneNumber.replace(/\s/g, ''));
+  const isOtpValid = otpInput.length === 4 && /^\d{4}$/.test(otpInput);
+
+  const handleSendOtp = useCallback(() => {
+    if (!isPhoneValid) return;
+    const code = String(Math.floor(1000 + Math.random() * 9000));
+    setOtpCode(code);
+    setOtpSent(true);
+    setOtpError(null);
+    setOtpInput('');
+    setPhoneVerified(false);
+    setShowOtpBanner(true);
+    // Auto-hide banner after 15 seconds
+    setTimeout(() => setShowOtpBanner(false), 15000);
+  }, [isPhoneValid]);
+
+  const handleVerifyOtp = useCallback(() => {
+    if (!otpCode || !isOtpValid) return;
+    if (otpInput === otpCode) {
+      setPhoneVerified(true);
+      setOtpError(null);
+      setShowOtpBanner(false);
+    } else {
+      setOtpError('Code incorrect. Réessayez.');
+    }
+  }, [otpCode, otpInput, isOtpValid]);
+
   const itemsTotal = cart.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
     0,
@@ -200,7 +239,7 @@ export function CheckoutFlow() {
               {
                 product_id: item.product.id,
                 store_id: item.product.vendorId, // for products fetched from Supabase this is the store UUID
-                client_phone: '2250700000000', // numéro factice pour l'instant
+                client_phone: phoneVerified ? `225${phoneNumber.replace(/\s/g, '')}` : '2250700000000',
                 delivery_zone: deliveryZone,
                 total_amount: totalAmount,
                 status: 'paid', // paiement confirmé
@@ -870,17 +909,137 @@ export function CheckoutFlow() {
         </div>
       </div>
 
+      {/* ═════════════════════════════════════════════════════════
+          OTP / PHONE VERIFICATION (Invisible Account)
+          ═════════════════════════════════════════════════════════ */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Smartphone className="w-4 h-4 text-orange-500" />
+          <h3 className="text-sm font-bold text-gray-900">Vérification du numéro</h3>
+          {phoneVerified && (
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 ml-auto" />
+          )}
+        </div>
+
+        {/* Phone Input */}
+        <div className="flex gap-2">
+          <div className="flex items-center gap-1 px-3 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-600 font-medium flex-shrink-0">
+            <span className="text-base">🇨🇮</span>
+            <span>+225</span>
+          </div>
+          <input
+            type="tel"
+            value={phoneNumber}
+            onChange={(e) => {
+              const val = e.target.value.replace(/[^0-9\s]/g, '');
+              if (val.replace(/\s/g, '').length <= 10) {
+                setPhoneNumber(val);
+              }
+            }}
+            placeholder="07 XX XX XX XX"
+            disabled={phoneVerified}
+            className={`flex-1 h-11 px-3 rounded-xl border text-sm font-medium transition-colors ${
+              phoneVerified
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                : 'bg-white border-gray-200 focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500'
+            }`}
+          />
+        </div>
+
+        {/* Send OTP Button */}
+        {!otpSent && !phoneVerified && (
+          <Button
+            onClick={handleSendOtp}
+            disabled={!isPhoneValid}
+            className="w-full h-11 bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Recevoir le code de validation
+          </Button>
+        )}
+
+        {/* OTP Sent Banner (simulated SMS) */}
+        {showOtpBanner && otpCode && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 animate-pulse">
+            <div className="flex items-start gap-2">
+              <KeyRound className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="text-[11px] font-bold text-amber-800 block">
+                  Simulation SMS — Code de vérification WABUZ
+                </span>
+                <span className="text-lg font-extrabold text-amber-900 tracking-widest">
+                  {otpCode}
+                </span>
+                <span className="text-[10px] text-amber-600 block mt-0.5">
+                  Entrez ce code ci-dessous pour vérifier votre numéro
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* OTP Input */}
+        {otpSent && !phoneVerified && (
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={otpInput}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  if (val.length <= 4) setOtpInput(val);
+                }}
+                placeholder="0000"
+                maxLength={4}
+                className="flex-1 h-11 px-3 rounded-xl border border-gray-200 text-center text-lg font-extrabold tracking-[0.3em] focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500"
+              />
+              <Button
+                onClick={handleVerifyOtp}
+                disabled={!isOtpValid}
+                className="h-11 px-5 bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Vérifier
+              </Button>
+            </div>
+            {otpError && (
+              <p className="text-xs text-red-500 font-medium">{otpError}</p>
+            )}
+            <button
+              onClick={handleSendOtp}
+              className="text-xs text-orange-500 hover:text-orange-600 font-medium"
+            >
+              Renvoyer le code
+            </button>
+          </div>
+        )}
+
+        {/* Verified badge */}
+        {phoneVerified && (
+          <div className="bg-emerald-50 rounded-xl p-2.5 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+            <span className="text-xs font-medium text-emerald-700">
+              Numéro vérifié : +225 {phoneNumber}
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* Confirm Payment Button */}
       <Button
         onClick={handleConfirmPayment}
+        disabled={!phoneVerified}
         className={`w-full h-13 font-bold text-base rounded-xl shadow-lg transition-all active:scale-[0.98] ${
-          isWave
-            ? 'bg-[#1DC3E0] hover:bg-[#1ab5d1] text-white shadow-[#1DC3E0]/30'
-            : 'bg-[#FF6600] hover:bg-[#e85d00] text-white shadow-[#FF6600]/30'
+          phoneVerified
+            ? isWave
+              ? 'bg-[#1DC3E0] hover:bg-[#1ab5d1] text-white shadow-[#1DC3E0]/30'
+              : 'bg-[#FF6600] hover:bg-[#e85d00] text-white shadow-[#FF6600]/30'
+            : 'bg-gray-200 text-gray-400 shadow-none cursor-not-allowed'
         }`}
         style={{ height: '52px' }}
       >
-        {isWave ? '💳 Payer avec Wave' : '📱 Payer avec Orange Money'}
+        {phoneVerified
+          ? isWave ? '💳 Payer avec Wave' : '📱 Payer avec Orange Money'
+          : '🔒 Vérifiez votre numéro d\'abord'
+        }
       </Button>
 
       <button

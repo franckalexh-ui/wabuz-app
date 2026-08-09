@@ -1,0 +1,951 @@
+     1→'use client';
+     2→
+     3→import { useAppStore, EscrowStatus } from '@/lib/store';
+     4→import { formatPrice, DELIVERY_FEE } from '@/lib/data';
+     5→import { useState, useEffect, useCallback } from 'react';
+     6→import {
+     7→  CheckCircle2,
+     8→  Clock,
+     9→  Loader2,
+    10→  Shield,
+    11→  Package,
+    12→  Lock,
+    13→  ArrowRight,
+    14→  X,
+    15→  AlertTriangle,
+    16→  ChevronDown,
+    17→} from 'lucide-react';
+    18→import { Button } from '@/components/ui/button';
+    19→import { toast } from '@/hooks/use-toast';
+    20→import { supabase } from '@/lib/supabaseClient';
+    21→
+    22→// ── Wave / Orange Money Brand Colors ─────────────────────────
+    23→const WAVE_COLOR = '#1DC3E0';
+    24→const WAVE_BG = '#E8F9FC';
+    25→const OM_COLOR = '#FF6600';
+    26→const OM_BG = '#FFF2E6';
+    27→
+    28→// ── Escrow Timeline Step ─────────────────────────────────────
+    29→interface TimelineStep {
+    30→  label: string;
+    31→  detail: string;
+    32→  status: 'done' | 'active' | 'pending';
+    33→  icon: React.ReactNode;
+    34→}
+    35→
+    36→function EscrowTimeline({ steps }: { steps: TimelineStep[] }) {
+    37→  return (
+    38→    <div className="w-full space-y-0">
+    39→      {steps.map((step, i) => (
+    40→        <div key={i} className="flex gap-3">
+    41→          {/* Vertical line + dot */}
+    42→          <div className="flex flex-col items-center">
+    43→            <div
+    44→              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-500 ${
+    45→                step.status === 'done'
+    46→                  ? 'bg-emerald-500'
+    47→                  : step.status === 'active'
+    48→                  ? 'bg-orange-500 ring-4 ring-orange-100'
+    49→                  : 'bg-gray-100'
+    50→              }`}
+    51→            >
+    52→              {step.status === 'active' ? (
+    53→                <Loader2 className="w-4 h-4 text-white animate-spin" />
+    54→              ) : step.status === 'done' ? (
+    55→                <CheckCircle2 className="w-4 h-4 text-white" />
+    56→              ) : (
+    57→                <Clock className="w-4 h-4 text-gray-300" />
+    58→              )}
+    59→            </div>
+    60→            {i < steps.length - 1 && (
+    61→              <div
+    62→                className={`w-0.5 h-8 transition-colors duration-500 ${
+    63→                  step.status === 'done' ? 'bg-emerald-300' : 'bg-gray-100'
+    64→                }`}
+    65→              />
+    66→            )}
+    67→          </div>
+    68→          {/* Text */}
+    69→          <div className="pb-4">
+    70→            <p
+    71→              className={`text-sm font-semibold transition-colors ${
+    72→                step.status === 'done'
+    73→                  ? 'text-emerald-600'
+    74→                  : step.status === 'active'
+    75→                  ? 'text-gray-900'
+    76→                  : 'text-gray-300'
+    77→              }`}
+    78→            >
+    79→              {step.label}
+    80→            </p>
+    81→            <p
+    82→              className={`text-[11px] mt-0.5 transition-colors ${
+    83→                step.status === 'pending' ? 'text-gray-200' : 'text-gray-400'
+    84→              }`}
+    85→            >
+    86→              {step.detail}
+    87→            </p>
+    88→          </div>
+    89→        </div>
+    90→      ))}
+    91→    </div>
+    92→  );
+    93→}
+    94→
+    95→// ── Escrow Shield Animation ──────────────────────────────────
+    96→function EscrowShield({ status }: { status: EscrowStatus }) {
+    97→  const isActive = status === 'held' || status === 'collecting';
+    98→  return (
+    99→    <div className="relative">
+   100→      <div
+   101→        className={`w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-700 ${
+   102→          status === 'held'
+   103→            ? 'bg-amber-100 shadow-lg shadow-amber-200/50'
+   104→            : status === 'released'
+   105→            ? 'bg-emerald-100 shadow-lg shadow-emerald-200/50'
+   106→            : 'bg-gray-100'
+   107→        }`}
+   108→      >
+   109→        {status === 'released' ? (
+   110→          <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+   111→        ) : (
+   112→          <Lock
+   113→            className={`w-10 h-10 transition-colors duration-500 ${
+   114→              isActive ? 'text-amber-500' : 'text-gray-300'
+   115→            }`}
+   116→          />
+   117→        )}
+   118→      </div>
+   119→      {isActive && (
+   120→        <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center">
+   121→          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+   122→        </div>
+   123→      )}
+   124→    </div>
+   125→  );
+   126→}
+   127→
+   128→// ── Main Component ───────────────────────────────────────────
+   129→export function CheckoutFlow() {
+   130→  const {
+   131→    cart,
+   132→    deliveryZone,
+   133→    paymentMethod,
+   134→    setPaymentStatus,
+   135→    paymentStatus,
+   136→    escrowStatus,
+   137→    setEscrowStatus,
+   138→    setLastOrderId,
+   139→    lastOrderId,
+   140→    setView,
+   141→    clearCart,
+   142→    resetCheckout,
+   143→    addClientOrder,
+   144→  } = useAppStore();
+   145→
+   146→  const [step, setStep] = useState<
+   147→    'confirming' | 'processing' | 'escrow-held' | 'success'
+   148→  >(paymentStatus === 'success' ? 'success' : 'confirming');
+   149→  const [showEscrowDetail, setShowEscrowDetail] = useState(false);
+   150→  const [processingProgress, setProcessingProgress] = useState(0);
+   151→
+   152→  const itemsTotal = cart.reduce(
+   153→    (sum, item) => sum + item.product.price * item.quantity,
+   154→    0,
+   155→  );
+   156→  const total = itemsTotal + (cart.length > 0 ? DELIVERY_FEE : 0);
+   157→  const isWave = paymentMethod === 'wave';
+   158→  const brandColor = isWave ? WAVE_COLOR : OM_COLOR;
+   159→  const brandBg = isWave ? WAVE_BG : OM_BG;
+   160→
+   161→  // ── Step 2: Processing with progress bar ────────────────
+   162→  useEffect(() => {
+   163→    if (step !== 'processing') return;
+   164→
+   165→    setPaymentStatus('processing');
+   166→    setEscrowStatus('collecting');
+   167→
+   168→    const progressInterval = setInterval(() => {
+   169→      setProcessingProgress((prev) => {
+   170→        if (prev >= 90) {
+   171→          clearInterval(progressInterval);
+   172→          return 90;
+   173→        }
+   174→        return prev + Math.random() * 15 + 5;
+   175→      });
+   176→    }, 400);
+   177→
+   178→    const timer = setTimeout(() => {
+   179→      clearInterval(progressInterval);
+   180→      setProcessingProgress(100);
+   181→      setEscrowStatus('held');
+   182→      const newOrderId = `WAB-${Date.now().toString(36).toUpperCase().slice(-6)}`;
+   183→      setLastOrderId(newOrderId);
+   184→
+   185→      // ── Persist each order to Supabase, then add to local store ──
+   186→      // We do the inserts first so we can capture the returned UUID and store
+   187→      // it on the local ClientOrder. That UUID is later used by the
+   188→      // "Confirmer la réception" button to release the escrow in Supabase.
+   189→      (async () => {
+   190→        const now = new Date().toISOString();
+   191→
+   192→        for (let idx = 0; idx < cart.length; idx++) {
+   193→          const item = cart[idx];
+   194→          const localId = idx === 0 ? newOrderId : `${newOrderId}-${idx + 1}`;
+   195→          const totalAmount = item.product.price * item.quantity + DELIVERY_FEE;
+   196→
+   197→          const { data, error } = await supabase
+   198→            .from('orders')
+   199→            .insert([
+   200→              {
+   201→                product_id: item.product.id,
+   202→                store_id: item.product.vendorId, // for products fetched from Supabase this is the store UUID
+   203→                client_phone: '2250700000000', // numéro factice pour l'instant
+   204→                delivery_zone: deliveryZone,
+   205→                total_amount: totalAmount,
+   206→                status: 'paid', // paiement confirmé
+   207→                escrow_status: 'held', // argent bloqué en Escrow
+   208→                payment_method: paymentMethod, // 'wave' ou 'orange_money'
+   209→              },
+   210→            ])
+   211→            .select();
+   212→
+   213→          if (error) {
+   214→            console.error(
+   215→              "Erreur lors de l'enregistrement de la commande:",
+   216→              error,
+   217→            );
+   218→            toast({
+   219→              title: 'Commande non sauvegardée',
+   220→              description: `Une erreur est survenue pendant l'enregistrement de la commande (${item.product.name}).`,
+   221→              variant: 'destructive',
+   222→            });
+   223→            // Still add to local store so the user sees the order, but without
+   224→            // a supabaseId — confirmation will only update local state.
+   225→            addClientOrder({
+   226→              id: localId,
+   227→              productName: item.product.name,
+   228→              productImage: item.product.images[0],
+   229→              vendorName: item.product.vendorName,
+   230→              vendorPhone: item.product.vendorPhone,
+   231→              deliveryZone,
+   232→              totalAmount,
+   233→              status: 'paid',
+   234→              escrowStatus: 'held',
+   235→              paymentMethod,
+   236→              quantity: item.quantity,
+   237→              createdAt: now,
+   238→            });
+   239→          } else {
+   240→            console.log(
+   241→              'Commande enregistrée avec succès dans Supabase pour',
+   242→              item.product.name,
+   243→            );
+   244→            const insertedRow = Array.isArray(data) && data.length > 0 ? data[0] : null;
+   245→            addClientOrder({
+   246→              id: localId,
+   247→              productName: item.product.name,
+   248→              productImage: item.product.images[0],
+   249→              vendorName: item.product.vendorName,
+   250→              vendorPhone: item.product.vendorPhone,
+   251→              deliveryZone,
+   252→              totalAmount,
+   253→              status: 'paid',
+   254→              escrowStatus: 'held',
+   255→              paymentMethod,
+   256→              quantity: item.quantity,
+   257→              createdAt: now,
+   258→              supabaseId: insertedRow?.id ? String(insertedRow.id) : undefined,
+   259→            });
+   260→          }
+   261→        }
+   262→      })();
+   263→
+   264→      setTimeout(() => setStep('escrow-held'), 600);
+   265→    }, 3500);
+   266→
+   267→    return () => {
+   268→      clearTimeout(timer);
+   269→      clearInterval(progressInterval);
+   270→    };
+   271→  }, [step, setPaymentStatus, setEscrowStatus, setLastOrderId, cart, deliveryZone, paymentMethod, addClientOrder]);
+   272→
+   273→  const handleConfirmPayment = useCallback(() => {
+   274→    setProcessingProgress(0);
+   275→    setStep('processing');
+   276→  }, []);
+   277→
+   278→  const handleContinueShopping = useCallback(() => {
+   279→    clearCart();
+   280→    setView('home');
+   281→    resetCheckout();
+   282→  }, [clearCart, setView, resetCheckout]);
+   283→
+   284→  // ── Escrow Timeline Steps based on current status ────────
+   285→  const getEscrowSteps = (): TimelineStep[] => [
+   286→    {
+   287→      label: 'Paiement initié',
+   288→      detail: isWave
+   289→        ? 'Envoi de la demande Wave...'
+   290→        : 'Envoi de la demande Orange Money...',
+   291→      status: 'done',
+   292→      icon: <CheckCircle2 className="w-4 h-4" />,
+   293→    },
+   294→    {
+   295→      label: 'Argent collecté',
+   296→      detail: `${formatPrice(total)} prélevé sur votre compte`,
+   297→      status:
+   298→        escrowStatus === 'collecting'
+   299→          ? 'active'
+   300→          : ['held', 'released'].includes(escrowStatus)
+   301→          ? 'done'
+   302→          : 'pending',
+   303→      icon: <CheckCircle2 className="w-4 h-4" />,
+   304→    },
+   305→    {
+   306→      label: 'Escrow WABUZ actif',
+   307→      detail: 'Fonds bloqués en sécurité jusqu\'à la livraison',
+   308→      status:
+   309→        escrowStatus === 'held'
+   310→          ? 'active'
+   311→          : escrowStatus === 'released'
+   312→          ? 'done'
+   313→          : 'pending',
+   314→      icon: <Lock className="w-4 h-4" />,
+   315→    },
+   316→    {
+   317→      label: 'Livraison confirmée',
+   318→      detail: 'Le vendeur reçoit l\'argent après votre confirmation',
+   319→      status: escrowStatus === 'released' ? 'done' : 'pending',
+   320→      icon: <Package className="w-4 h-4" />,
+   321→    },
+   322→  ];
+   323→
+   324→  // ══════════════════════════════════════════════════════════
+   325→  // SUCCESS VIEW
+   326→  // ══════════════════════════════════════════════════════════
+   327→  if (step === 'success') {
+   328→    return (
+   329→      <div className="min-h-[75vh] flex flex-col items-center justify-center px-6 text-center">
+   330→        {/* Success Animation */}
+   331→        <div className="relative mb-6">
+   332→          <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center animate-in zoom-in duration-500">
+   333→            <CheckCircle2 className="w-14 h-14 text-emerald-500" />
+   334→          </div>
+   335→          <div className="absolute -top-2 -right-2 w-8 h-8 bg-amber-400 rounded-full flex items-center justify-center animate-in zoom-in duration-700">
+   336→            <span className="text-lg">🎉</span>
+   337→          </div>
+   338→        </div>
+   339→
+   340→        <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
+   341→          Paiement Confirmé !
+   342→        </h2>
+   343→        <p className="text-sm text-gray-500 mb-2 max-w-xs">
+   344→          Votre commande a été enregistrée. Le vendeur sera notifié et vous
+   345→          recevrez une confirmation par WhatsApp.
+   346→        </p>
+   347→
+   348→        {/* Order ID Badge */}
+   349→        {lastOrderId && (
+   350→          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100 mb-6">
+   351→            <Package className="w-3.5 h-3.5 text-gray-400" />
+   352→            <span className="text-xs font-mono font-bold text-gray-600">
+   353→              {lastOrderId}
+   354→            </span>
+   355→          </div>
+   356→        )}
+   357→
+   358→        {/* Order Details Card */}
+   359→        <div className="w-full bg-gray-50 rounded-2xl p-5 mb-4 text-left">
+   360→          <div className="flex items-center gap-2 mb-4">
+   361→            <Package className="w-4 h-4 text-orange-500" />
+   362→            <span className="text-sm font-semibold text-gray-900">
+   363→              Détails de la commande
+   364→            </span>
+   365→          </div>
+   366→          {cart.map((item) => (
+   367→            <div
+   368→              key={item.product.id}
+   369→              className="flex items-center gap-3 mb-3 last:mb-0"
+   370→            >
+   371→              <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0">
+   372→                <img
+   373→                  src={item.product.images[0]}
+   374→                  alt={item.product.name}
+   375→                  className="w-full h-full object-cover"
+   376→                />
+   377→              </div>
+   378→              <div className="flex-1 min-w-0">
+   379→                <p className="text-sm font-medium text-gray-900 truncate">
+   380→                  {item.product.name}
+   381→                </p>
+   382→                <p className="text-xs text-gray-400">x{item.quantity}</p>
+   383→              </div>
+   384→              <span className="text-sm font-bold text-gray-700">
+   385→                {formatPrice(item.product.price * item.quantity)}
+   386→              </span>
+   387→            </div>
+   388→          ))}
+   389→          <div className="border-t border-gray-200 mt-3 pt-3 space-y-1.5">
+   390→            <div className="flex justify-between text-xs">
+   391→              <span className="text-gray-500">Livraison à {deliveryZone}</span>
+   392→              <span className="text-gray-700">
+   393→                {formatPrice(DELIVERY_FEE)}
+   394→              </span>
+   395→            </div>
+   396→            <div className="flex justify-between text-sm font-bold">
+   397→              <span className="text-gray-900">Total</span>
+   398→              <span className="text-orange-600">{formatPrice(total)}</span>
+   399→            </div>
+   400→          </div>
+   401→        </div>
+   402→
+   403→        {/* Escrow Status Card */}
+   404→        <div className="w-full bg-amber-50 rounded-2xl p-4 mb-4 text-left">
+   405→          <div className="flex items-center gap-3">
+   406→            <EscrowShield status="held" />
+   407→            <div className="flex-1">
+   408→              <div className="flex items-center gap-2">
+   409→                <Lock className="w-4 h-4 text-amber-600" />
+   410→                <span className="text-sm font-bold text-amber-800">
+   411→                  Escrow Actif
+   412→                </span>
+   413→              </div>
+   414→              <p className="text-xs text-amber-600 mt-1 leading-relaxed">
+   415→                Vos <span className="font-bold">{formatPrice(total)}</span> sont
+   416→                bloqués en toute sécurité. Le vendeur ne recevra l&apos;argent
+   417→                qu&apos;après votre confirmation de réception.
+   418→              </p>
+   419→            </div>
+   420→          </div>
+   421→
+   422→          {/* Mini Escrow Flow */}
+   423→          <div className="mt-4 flex items-center gap-1">
+   424→            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-blue-100">
+   425→              <span className="text-[10px] font-bold text-blue-700">Vous</span>
+   426→            </div>
+   427→            <ArrowRight className="w-3 h-3 text-gray-300" />
+   428→            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 ring-2 ring-amber-300">
+   429→              <Lock className="w-2.5 h-2.5 text-amber-600" />
+   430→              <span className="text-[10px] font-bold text-amber-700">
+   431→                Escrow WABUZ
+   432→              </span>
+   433→            </div>
+   434→            <ArrowRight className="w-3 h-3 text-gray-300" />
+   435→            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-gray-100">
+   436→              <span className="text-[10px] font-bold text-gray-400">
+   437→                Vendeur
+   438→              </span>
+   439→            </div>
+   440→          </div>
+   441→        </div>
+   442→
+   443→        {/* Estimated Delivery */}
+   444→        <div className="w-full bg-orange-50 rounded-2xl p-4 mb-6 flex items-center gap-3">
+   445→          <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center flex-shrink-0">
+   446→            <TruckIcon className="w-5 h-5 text-orange-500" />
+   447→          </div>
+   448→          <div>
+   449→            <span className="text-sm font-semibold text-gray-900 block">
+   450→              Livraison estimée
+   451→            </span>
+   452→            <span className="text-xs text-gray-500">
+   453→              24-48 heures à {deliveryZone}
+   454→            </span>
+   455→          </div>
+   456→        </div>
+   457→
+   458→        <div className="w-full space-y-3">
+   459→          <Button
+   460→            onClick={handleContinueShopping}
+   461→            className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-500/30"
+   462→          >
+   463→            Continuer mes achats
+   464→          </Button>
+   465→          <button
+   466→            onClick={() => {
+   467→              resetCheckout();
+   468→              setView('orders');
+   469→            }}
+   470→            className="w-full py-3 text-sm text-gray-500 hover:text-orange-600 transition-colors font-medium"
+   471→          >
+   472→            Suivre ma commande
+   473→          </button>
+   474→        </div>
+   475→      </div>
+   476→    );
+   477→  }
+   478→
+   479→  // ══════════════════════════════════════════════════════════
+   480→  // ESCROW HELD VIEW (money is now locked)
+   481→  // ══════════════════════════════════════════════════════════
+   482→  if (step === 'escrow-held') {
+   483→    return (
+   484→      <div className="min-h-[75vh] flex flex-col items-center justify-center px-6 py-6 pb-24 text-center">
+   485→        {/* Big Escrow Shield */}
+   486→        <div className="mb-6 animate-in zoom-in duration-500">
+   487→          <EscrowShield status="held" />
+   488→        </div>
+   489→
+   490→        <h2 className="text-xl font-extrabold text-gray-900 mb-2">
+   491→          Argent bloqué en Escrow
+   492→        </h2>
+   493→        <p className="text-sm text-gray-500 mb-6 max-w-xs">
+   494→          Vos <span className="font-bold text-gray-900">{formatPrice(total)}</span>{' '}
+   495→          sont sécurisés. Le vendeur ne reçoit rien tant que vous n&apos;avez pas
+   496→          confirmé la réception.
+   497→        </p>
+   498→
+   499→        {/* Full Escrow Timeline */}
+   500→        <div className="w-full bg-gray-50 rounded-2xl p-5 mb-5 text-left">
+   501→          <div className="flex items-center justify-between mb-4">
+   502→            <span className="text-sm font-bold text-gray-900">
+   503→              Suivi Escrow
+   504→            </span>
+   505→            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+   506→              <Lock className="w-2.5 h-2.5" />
+   507→              En attente de livraison
+   508→            </span>
+   509→          </div>
+   510→          <EscrowTimeline steps={getEscrowSteps()} />
+   511→        </div>
+   512→
+   513→        {/* How Escrow Works - expandable */}
+   514→        <button
+   515→          onClick={() => setShowEscrowDetail(!showEscrowDetail)}
+   516→          className="w-full flex items-center justify-between bg-blue-50 rounded-2xl p-4 mb-5 text-left"
+   517→        >
+   518→          <div className="flex items-center gap-2">
+   519→            <Shield className="w-5 h-5 text-blue-500 flex-shrink-0" />
+   520→            <span className="text-sm font-semibold text-blue-800">
+   521→              Comment fonctionne l&apos;Escrow ?
+   522→            </span>
+   523→          </div>
+   524→          <ChevronDown
+   525→            className={`w-4 h-4 text-blue-400 transition-transform ${
+   526→              showEscrowDetail ? 'rotate-180' : ''
+   527→            }`}
+   528→          />
+   529→        </button>
+   530→
+   531→        {showEscrowDetail && (
+   532→          <div className="w-full space-y-3 mb-5 animate-in slide-in-from-top duration-200">
+   533→            <div className="bg-white border border-gray-100 rounded-xl p-4">
+   534→              <div className="flex items-start gap-3">
+   535→                <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-blue-600">
+   536→                  1
+   537→                </div>
+   538→                <div>
+   539→                  <p className="text-xs font-bold text-gray-900">Vous payez</p>
+   540→                  <p className="text-[11px] text-gray-500">
+   541→                    L&apos;argent est prélevé de votre compte{' '}
+   542→                    {isWave ? 'Wave' : 'Orange Money'}
+   543→                  </p>
+   544→                </div>
+   545→              </div>
+   546→            </div>
+   547→            <div className="flex justify-center">
+   548→              <ArrowRight className="w-4 h-4 text-gray-200 rotate-90" />
+   549→            </div>
+   550→            <div className="bg-white border border-amber-200 rounded-xl p-4">
+   551→              <div className="flex items-start gap-3">
+   552→                <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-amber-600">
+   553→                  2
+   554→                </div>
+   555→                <div>
+   556→                  <p className="text-xs font-bold text-gray-900">
+   557→                    WABUZ bloque les fonds
+   558→                  </p>
+   559→                  <p className="text-[11px] text-gray-500">
+   560→                    L&apos;argent est conservé en toute sécurité sur un compte
+   561→                    Escrow WABUZ
+   562→                  </p>
+   563→                </div>
+   564→              </div>
+   565→            </div>
+   566→            <div className="flex justify-center">
+   567→              <ArrowRight className="w-4 h-4 text-gray-200 rotate-90" />
+   568→            </div>
+   569→            <div className="bg-white border border-gray-100 rounded-xl p-4">
+   570→              <div className="flex items-start gap-3">
+   571→                <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-emerald-600">
+   572→                  3
+   573→                </div>
+   574→                <div>
+   575→                  <p className="text-xs font-bold text-gray-900">
+   576→                    Vous confirmez la réception
+   577→                  </p>
+   578→                  <p className="text-[11px] text-gray-500">
+   579→                    Après vérification du colis, vous confirmez la livraison
+   580→                  </p>
+   581→                </div>
+   582→              </div>
+   583→            </div>
+   584→            <div className="flex justify-center">
+   585→              <ArrowRight className="w-4 h-4 text-gray-200 rotate-90" />
+   586→            </div>
+   587→            <div className="bg-white border border-emerald-200 rounded-xl p-4">
+   588→              <div className="flex items-start gap-3">
+   589→                <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 text-xs font-bold text-emerald-600">
+   590→                  4
+   591→                </div>
+   592→                <div>
+   593→                  <p className="text-xs font-bold text-gray-900">
+   594→                    Le vendeur est payé
+   595→                  </p>
+   596→                  <p className="text-[11px] text-gray-500">
+   597→                    L&apos;argent est transféré au vendeur automatiquement
+   598→                  </p>
+   599→                </div>
+   600→              </div>
+   601→            </div>
+   602→
+   603→            {/* Refund Notice */}
+   604→            <div className="bg-red-50 rounded-xl p-3 flex items-start gap-2">
+   605→              <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+   606→              <div>
+   607→                <span className="text-[11px] font-bold text-red-700 block">
+   608→                  Remboursement automatique
+   609→                </span>
+   610→                <span className="text-[10px] text-red-500">
+   611→                  Si le vendeur ne livre pas dans les 7 jours, vous êtes
+   612→                  remboursé intégralement
+   613→                </span>
+   614→              </div>
+   615→            </div>
+   616→          </div>
+   617→        )}
+   618→
+   619→        <Button
+   620→          onClick={() => {
+   621→            setPaymentStatus('success');
+   622→            setStep('success');
+   623→          }}
+   624→          className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-500/30"
+   625→        >
+   626→          Voir le récapitulatif
+   627→        </Button>
+   628→      </div>
+   629→    );
+   630→  }
+   631→
+   632→  // ══════════════════════════════════════════════════════════
+   633→  // PROCESSING VIEW (with progress bar + escrow animation)
+   634→  // ══════════════════════════════════════════════════════════
+   635→  if (step === 'processing') {
+   636→    return (
+   637→      <div className="min-h-[75vh] flex flex-col items-center justify-center px-6 text-center">
+   638→        {/* Branded Spinner */}
+   639→        <div className="relative mb-6">
+   640→          <div
+   641→            className="w-24 h-24 rounded-full flex items-center justify-center"
+   642→            style={{ backgroundColor: brandBg }}
+   643→          >
+   644→            <Loader2
+   645→              className="w-14 h-14 animate-spin"
+   646→              style={{ color: brandColor }}
+   647→            />
+   648→          </div>
+   649→          {/* Payment method badge */}
+   650→          <div
+   651→            className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-white text-[10px] font-bold shadow-md"
+   652→            style={{ backgroundColor: brandColor }}
+   653→          >
+   654→            {isWave ? 'Wave' : 'Orange Money'}
+   655→          </div>
+   656→        </div>
+   657→
+   658→        <h2 className="text-xl font-bold text-gray-900 mb-2">
+   659→          {isWave
+   660→            ? 'En attente de validation Wave...'
+   661→            : 'En attente de validation Orange Money...'}
+   662→        </h2>
+   663→        <p className="text-sm text-gray-500 mb-6 max-w-xs">
+   664→          Veuillez confirmer le paiement de{' '}
+   665→          <span className="font-bold text-gray-900">{formatPrice(total)}</span>{' '}
+   666→          sur votre téléphone
+   667→        </p>
+   668→
+   669→        {/* Progress Bar */}
+   670→        <div className="w-full mb-6">
+   671→          <div className="flex justify-between text-xs text-gray-400 mb-1.5">
+   672→            <span>Traitement en cours...</span>
+   673→            <span>{Math.min(Math.round(processingProgress), 100)}%</span>
+   674→          </div>
+   675→          <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+   676→            <div
+   677→              className="h-full rounded-full transition-all duration-300 ease-out"
+   678→              style={{
+   679→                width: `${Math.min(processingProgress, 100)}%`,
+   680→                backgroundColor: brandColor,
+   681→              }}
+   682→            />
+   683→          </div>
+   684→        </div>
+   685→
+   686→        {/* Simulation Steps */}
+   687→        <div className="w-full space-y-3 mb-6">
+   688→          <div className="flex items-center gap-3">
+   689→            <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+   690→            <span className="text-sm text-emerald-600 font-medium">
+   691→              Commande créée
+   692→            </span>
+   693→          </div>
+   694→          <div className="flex items-center gap-3">
+   695→            {processingProgress > 50 ? (
+   696→              <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+   697→            ) : (
+   698→              <div
+   699→                className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin flex-shrink-0"
+   700→                style={{ borderColor: brandColor, borderTopColor: 'transparent' }}
+   701→              />
+   702→            )}
+   703→            <span
+   704→              className={`text-sm font-medium ${
+   705→                processingProgress > 50 ? 'text-emerald-600' : 'text-gray-900'
+   706→              }`}
+   707→            >
+   708→              {processingProgress > 50
+   709→                ? 'Paiement validé'
+   710→                : 'Validation du paiement...'}
+   711→            </span>
+   712→          </div>
+   713→          <div className="flex items-center gap-3">
+   714→            {processingProgress > 80 ? (
+   715→              <div
+   716→                className="w-5 h-5 rounded-full border-2 flex-shrink-0 animate-spin"
+   717→                style={{
+   718→                  borderColor: brandColor,
+   719→                  borderTopColor: 'transparent',
+   720→                }}
+   721→              />
+   722→            ) : (
+   723→              <Clock className="w-5 h-5 text-gray-200 flex-shrink-0" />
+   724→            )}
+   725→            <span
+   726→              className={`text-sm ${
+   727→                processingProgress > 80
+   728→                  ? 'text-gray-900 font-medium'
+   729→                  : 'text-gray-300'
+   730→              }`}
+   731→            >
+   732→              Activation de l&apos;Escrow...
+   733→            </span>
+   734→          </div>
+   735→        </div>
+   736→
+   737→        {/* Escrow Info */}
+   738→        <div className="w-full bg-amber-50 rounded-xl p-4 flex items-start gap-3">
+   739→          <Shield className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+   740→          <div className="text-left">
+   741→            <span className="text-xs font-semibold text-amber-800 block">
+   742→              Paiement Sécurisé Escrow
+   743→            </span>
+   744→            <span className="text-[11px] text-amber-600">
+   745→              Votre argent sera bloqué en sécurité jusqu&apos;à la livraison
+   746→            </span>
+   747→          </div>
+   748→        </div>
+   749→      </div>
+   750→    );
+   751→  }
+   752→
+   753→  // ══════════════════════════════════════════════════════════
+   754→  // CONFIRMING VIEW (payment method selection summary)
+   755→  // ══════════════════════════════════════════════════════════
+   756→  return (
+   757→    <div className="min-h-[75vh] flex flex-col px-6 py-6 pb-24">
+   758→      {/* Header */}
+   759→      <div className="text-center mb-6">
+   760→        <div
+   761→          className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-4"
+   762→          style={{ backgroundColor: brandBg }}
+   763→        >
+   764→          {isWave ? (
+   765→            <WaveLogo />
+   766→          ) : (
+   767→            <OrangeMoneyLogo />
+   768→          )}
+   769→        </div>
+   770→        <h2 className="text-xl font-extrabold text-gray-900 mb-1">
+   771→          {isWave ? 'Payer avec Wave' : 'Payer avec Orange Money'}
+   772→        </h2>
+   773→        <p className="text-sm text-gray-500">
+   774→          Vous allez être redirigé vers{' '}
+   775→          {isWave ? 'Wave' : 'Orange Money'} pour finaliser le paiement
+   776→        </p>
+   777→      </div>
+   778→
+   779→      {/* Payment Summary */}
+   780→      <div className="bg-gray-50 rounded-2xl p-5 mb-4">
+   781→        <div className="text-center mb-4">
+   782→          <span className="text-3xl font-extrabold text-gray-900">
+   783→            {formatPrice(total)}
+   784→          </span>
+   785→        </div>
+   786→        <div className="space-y-2 text-sm">
+   787→          <div className="flex justify-between">
+   788→            <span className="text-gray-500">Articles ({cart.length})</span>
+   789→            <span className="text-gray-700">{formatPrice(itemsTotal)}</span>
+   790→          </div>
+   791→          <div className="flex justify-between">
+   792→            <span className="text-gray-500">Livraison</span>
+   793→            <span className="text-gray-700">{formatPrice(DELIVERY_FEE)}</span>
+   794→          </div>
+   795→          <div className="border-t border-gray-200 pt-2 flex justify-between font-bold">
+   796→            <span className="text-gray-900">Total</span>
+   797→            <span className="text-orange-600">{formatPrice(total)}</span>
+   798→          </div>
+   799→        </div>
+   800→      </div>
+   801→
+   802→      {/* Escrow Badge - Prominent */}
+   803→      <div className="bg-emerald-50 rounded-2xl p-4 mb-4">
+   804→        <div className="flex items-center gap-3">
+   805→          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+   806→            <Shield className="w-5 h-5 text-emerald-500" />
+   807→          </div>
+   808→          <div className="text-left">
+   809→            <span className="text-xs font-bold text-emerald-800 block">
+   810→              Paiement Escrow Sécurisé
+   811→            </span>
+   812→            <span className="text-[11px] text-emerald-600 leading-relaxed">
+   813→              Le vendeur reçoit l&apos;argent uniquement après votre
+   814→              confirmation de réception
+   815→            </span>
+   816→          </div>
+   817→        </div>
+   818→
+   819→        {/* Mini flow visualization */}
+   820→        <div className="mt-3 flex items-center justify-between px-2">
+   821→          <div className="flex flex-col items-center">
+   822→            <div className="w-8 h-8 rounded-full bg-emerald-200 flex items-center justify-center">
+   823→              <span className="text-[10px]">💳</span>
+   824→            </div>
+   825→            <span className="text-[9px] text-emerald-600 font-medium mt-1">
+   826→              Vous payez
+   827→            </span>
+   828→          </div>
+   829→          <div className="flex-1 mx-2 border-t-2 border-dashed border-emerald-200" />
+   830→          <div className="flex flex-col items-center">
+   831→            <div className="w-8 h-8 rounded-full bg-emerald-200 flex items-center justify-center">
+   832→              <Lock className="w-3.5 h-3.5 text-emerald-600" />
+   833→            </div>
+   834→            <span className="text-[9px] text-emerald-600 font-medium mt-1">
+   835→              Escrow WABUZ
+   836→            </span>
+   837→          </div>
+   838→          <div className="flex-1 mx-2 border-t-2 border-dashed border-emerald-200" />
+   839→          <div className="flex flex-col items-center">
+   840→            <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+   841→              <span className="text-[10px]">🏪</span>
+   842→            </div>
+   843→            <span className="text-[9px] text-gray-400 font-medium mt-1">
+   844→              Vendeur
+   845→            </span>
+   846→          </div>
+   847→        </div>
+   848→      </div>
+   849→
+   850→      {/* Payment Method Info */}
+   851→      <div
+   852→        className="rounded-2xl p-4 mb-5"
+   853→        style={{ backgroundColor: brandBg }}
+   854→      >
+   855→        <div className="flex items-center gap-3">
+   856→          <div
+   857→            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm"
+   858→            style={{ backgroundColor: brandColor }}
+   859→          >
+   860→            {isWave ? 'W' : 'OM'}
+   861→          </div>
+   862→          <div className="text-left flex-1">
+   863→            <span className="text-sm font-bold text-gray-900 block">
+   864→              {isWave ? 'Compte Wave' : 'Compte Orange Money'}
+   865→            </span>
+   866→            <span className="text-xs text-gray-500">
+   867→              Confirmez sur votre téléphone après avoir cliqué
+   868→            </span>
+   869→          </div>
+   870→        </div>
+   871→      </div>
+   872→
+   873→      {/* Confirm Payment Button */}
+   874→      <Button
+   875→        onClick={handleConfirmPayment}
+   876→        className={`w-full h-13 font-bold text-base rounded-xl shadow-lg transition-all active:scale-[0.98] ${
+   877→          isWave
+   878→            ? 'bg-[#1DC3E0] hover:bg-[#1ab5d1] text-white shadow-[#1DC3E0]/30'
+   879→            : 'bg-[#FF6600] hover:bg-[#e85d00] text-white shadow-[#FF6600]/30'
+   880→        }`}
+   881→        style={{ height: '52px' }}
+   882→      >
+   883→        {isWave ? '💳 Payer avec Wave' : '📱 Payer avec Orange Money'}
+   884→      </Button>
+   885→
+   886→      <button
+   887→        onClick={() => {
+   888→          resetCheckout();
+   889→          setView('product-detail');
+   890→        }}
+   891→        className="mt-4 text-sm text-gray-400 hover:text-gray-600 transition-colors text-center w-full"
+   892→      >
+   893→        Annuler
+   894→      </button>
+   895→    </div>
+   896→  );
+   897→}
+   898→
+   899→// ── Custom SVG Logos ─────────────────────────────────────────
+   900→function WaveLogo() {
+   901→  return (
+   902→    <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+   903→      <rect width="40" height="40" rx="12" fill="#1DC3E0" />
+   904→      <path
+   905→        d="M10 22C10 22 14 16 20 16C26 16 30 22 30 22"
+   906→        stroke="white"
+   907→        strokeWidth="3"
+   908→        strokeLinecap="round"
+   909→      />
+   910→      <path
+   911→        d="M10 26C10 26 14 20 20 20C26 20 30 26 30 26"
+   912→        stroke="white"
+   913→        strokeWidth="2"
+   914→        strokeLinecap="round"
+   915→        opacity="0.5"
+   916→      />
+   917→    </svg>
+   918→  );
+   919→}
+   920→
+   921→function OrangeMoneyLogo() {
+   922→  return (
+   923→    <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+   924→      <rect width="40" height="40" rx="12" fill="#FF6600" />
+   925→      <circle cx="20" cy="18" r="6" stroke="white" strokeWidth="2.5" fill="none" />
+   926→      <rect x="14" y="25" width="12" height="3" rx="1.5" fill="white" opacity="0.8" />
+   927→    </svg>
+   928→  );
+   929→}
+   930→
+   931→function TruckIcon({ className }: { className?: string }) {
+   932→  return (
+   933→    <svg
+   934→      xmlns="http://www.w3.org/2000/svg"
+   935→      viewBox="0 0 24 24"
+   936→      fill="none"
+   937→      stroke="currentColor"
+   938→      strokeWidth="2"
+   939→      strokeLinecap="round"
+   940→      strokeLinejoin="round"
+   941→      className={className}
+   942→    >
+   943→      <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
+   944→      <path d="M15 18H9" />
+   945→      <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" />
+   946→      <circle cx="17" cy="18" r="2" />
+   947→      <circle cx="7" cy="18" r="2" />
+   948→    </svg>
+   949→  );
+   950→}
+   951→
