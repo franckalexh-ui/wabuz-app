@@ -18,7 +18,7 @@ export function BottomNav() {
     { icon: <Home className="w-5 h-5" />, label: 'Accueil', view: 'home' },
     { icon: <Grid3X3 className="w-5 h-5" />, label: 'Catégories', view: 'home' },
     { icon: <ShoppingBag className="w-5 h-5" />, label: 'Commandes', view: 'orders' },
-    { icon: <User className="w-5 h-5" />, label: 'Profil', view: 'home' },
+    { icon: <User className="w-5 h-5" />, label: 'Profil', view: 'profile' },
   ];
 
   const vendorNavItems: NavItem[] = [

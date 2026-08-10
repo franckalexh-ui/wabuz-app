@@ -144,6 +144,11 @@ export function CheckoutFlow() {
     clearCart,
     resetCheckout,
     addClientOrder,
+    setClientProfile,
+    clientPhone: storedPhone,
+    clientFirstName: storedFirstName,
+    clientLastName: storedLastName,
+    clientLoggedIn,
   } = useAppStore();
 
   const [step, setStep] = useState<
@@ -153,18 +158,20 @@ export function CheckoutFlow() {
   const [processingProgress, setProcessingProgress] = useState(0);
 
   // ── OTP / Phone Verification State ──────────────────────
-  const [phoneNumber, setPhoneNumber] = useState('');
   const [otpCode, setOtpCode] = useState<string | null>(null);
   const [otpInput, setOtpInput] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(clientLoggedIn && !!storedPhone);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [showOtpBanner, setShowOtpBanner] = useState(false);
 
   // ── Client Profile State (Step 3) ───────────────────────
-  const [clientFirstName, setClientFirstName] = useState('');
-  const [clientLastName, setClientLastName] = useState('');
+  const [clientFirstName, setClientFirstName] = useState(storedFirstName || '');
+  const [clientLastName, setClientLastName] = useState(storedLastName || '');
   const isProfileComplete = clientFirstName.trim().length >= 2;
+
+  // ── Pre-fill phone from stored profile ───────────────────
+  const [phoneNumber, setPhoneNumber] = useState(storedPhone || '');
 
   // Validate Ivorian phone format: 07/05/01 XX XX XX XX
   const isPhoneValid = /^(07|05|01)\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{2}$/.test(phoneNumber.replace(/\s/g, ''));
@@ -316,9 +323,17 @@ export function CheckoutFlow() {
   }, [step, setPaymentStatus, setEscrowStatus, setLastOrderId, cart, deliveryZone, paymentMethod, addClientOrder]);
 
   const handleConfirmPayment = useCallback(() => {
+    // Save client profile to store + localStorage before processing
+    if (phoneVerified && isProfileComplete && phoneNumber) {
+      setClientProfile(
+        `225${phoneNumber.replace(/\s/g, '')}`,
+        clientFirstName.trim(),
+        clientLastName.trim()
+      );
+    }
     setProcessingProgress(0);
     setStep('processing');
-  }, []);
+  }, [phoneVerified, isProfileComplete, phoneNumber, clientFirstName, clientLastName, setClientProfile]);
 
   const handleContinueShopping = useCallback(() => {
     clearCart();

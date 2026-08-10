@@ -7,13 +7,20 @@ import { ClientHome } from '@/components/wabuz/ClientHome';
 import { ProductDetail } from '@/components/wabuz/ProductDetail';
 import { CheckoutFlow } from '@/components/wabuz/CheckoutFlow';
 import ClientOrders from '@/components/client/ClientOrders';
+import { ClientProfile } from '@/components/client/ClientProfile';
 import { VendorDashboard } from '@/components/wabuz/VendorDashboard';
 import { VendorProducts } from '@/components/wabuz/VendorProducts';
 import { VendorOrders } from '@/components/wabuz/VendorOrders';
 import { VendorAddProduct } from '@/components/wabuz/VendorAddProduct';
+import { useEffect } from 'react';
 
 export default function Home() {
-  const { view, mode } = useAppStore();
+  const { view, mode, loadClientFromStorage } = useAppStore();
+
+  // Load client profile from localStorage on mount (auto-login)
+  useEffect(() => {
+    loadClientFromStorage();
+  }, [loadClientFromStorage]);
 
   const renderView = () => {
     switch (view) {
@@ -30,6 +37,8 @@ export default function Home() {
         return <CheckoutFlow />;
       case 'orders':
         return <ClientOrders />;
+      case 'profile':
+        return <ClientProfile />;
 
       // Vendor views
       case 'vendor-dashboard':

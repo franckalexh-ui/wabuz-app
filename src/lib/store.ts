@@ -12,6 +12,7 @@ export type AppView =
   | 'payment-processing'
   | 'payment-success'
   | 'orders'
+  | 'profile'
   | 'vendor-dashboard'
   | 'vendor-products'
   | 'vendor-orders'
@@ -56,6 +57,12 @@ interface AppState {
   activeClientOrderFilter: 'all' | 'active' | 'delivered';
   confirmingReceiptId: string | null;
 
+  // Client Profile State (Invisible Account)
+  clientPhone: string;
+  clientFirstName: string;
+  clientLastName: string;
+  clientLoggedIn: boolean;
+
   // Actions
   setMode: (mode: AppMode) => void;
   setView: (view: AppView) => void;
@@ -90,6 +97,11 @@ interface AppState {
   setClientOrderFilter: (filter: 'all' | 'active' | 'delivered') => void;
   setConfirmingReceiptId: (id: string | null) => void;
   getActiveOrdersCount: () => number;
+
+  // Client Profile Actions (Invisible Account)
+  setClientProfile: (phone: string, firstName: string, lastName: string) => void;
+  clientLogout: () => void;
+  loadClientFromStorage: () => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -118,6 +130,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   clientOrders: [...MOCK_CLIENT_ORDERS],
   activeClientOrderFilter: 'all',
   confirmingReceiptId: null,
+
+  // Client Profile initial state
+  clientPhone: '',
+  clientFirstName: '',
+  clientLastName: '',
+  clientLoggedIn: false,
 
   // Actions
   setMode: (mode) => set({ mode, view: mode === 'client' ? 'home' : 'vendor-dashboard' }),
@@ -313,5 +331,53 @@ export const useAppStore = create<AppState>((set, get) => ({
     return clientOrders.filter(
       (o) => o.status !== 'delivered',
     ).length;
+  },
+
+  // ── Client Profile Actions (Invisible Account) ────────────
+  setClientProfile: (phone, firstName, lastName) => {
+    set({
+      clientPhone: phone,
+      clientFirstName: firstName,
+      clientLastName: lastName,
+      clientLoggedIn: true,
+    });
+    // Persist to localStorage
+    if (typeof window !== 'undefined') {
+      const clientData = { phone, firstName, lastName };
+      localStorage.setItem('wabuz_client', JSON.stringify(clientData));
+    }
+  },
+
+  clientLogout: () => {
+    set({
+      clientPhone: '',
+      clientFirstName: '',
+      clientLastName: '',
+      clientLoggedIn: false,
+    });
+    // Clear localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('wabuz_client');
+    }
+  },
+
+  loadClientFromStorage: () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const stored = localStorage.getItem('wabuz_client');
+      if (stored) {
+        const { phone, firstName, lastName } = JSON.parse(stored);
+        if (phone && firstName) {
+          set({
+            clientPhone: phone,
+            clientFirstName: firstName,
+            clientLastName: lastName || '',
+            clientLoggedIn: true,
+          });
+        }
+      }
+    } catch {
+      // Invalid localStorage data — ignore
+    }
   },
 }));
