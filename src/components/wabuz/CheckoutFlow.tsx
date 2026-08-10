@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Smartphone,
   KeyRound,
+  User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -159,6 +160,11 @@ export function CheckoutFlow() {
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [otpError, setOtpError] = useState<string | null>(null);
   const [showOtpBanner, setShowOtpBanner] = useState(false);
+
+  // ── Client Profile State (Step 3) ───────────────────────
+  const [clientFirstName, setClientFirstName] = useState('');
+  const [clientLastName, setClientLastName] = useState('');
+  const isProfileComplete = clientFirstName.trim().length >= 2;
 
   // Validate Ivorian phone format: 07/05/01 XX XX XX XX
   const isPhoneValid = /^(07|05|01)\s?\d{2}\s?\d{2}\s?\d{2}\s?\d{2}$/.test(phoneNumber.replace(/\s/g, ''));
@@ -377,7 +383,9 @@ export function CheckoutFlow() {
         </div>
 
         <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
-          Paiement Confirmé !
+          {clientFirstName
+            ? `Merci ${clientFirstName} !`
+            : 'Paiement Confirmé !'}
         </h2>
         <p className="text-sm text-gray-500 mb-2 max-w-xs">
           Votre commande a été enregistrée. Le vendeur sera notifié et vous
@@ -1023,12 +1031,67 @@ export function CheckoutFlow() {
         )}
       </div>
 
+      {/* ═════════════════════════════════════════════════════════
+          CLIENT PROFILE (Step 3 — after phone verified)
+          ═════════════════════════════════════════════════════════ */}
+      {phoneVerified && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 space-y-3">
+          <div className="flex items-center gap-2 mb-1">
+            <User className="w-4 h-4 text-orange-500" />
+            <h3 className="text-sm font-bold text-gray-900">Vos informations</h3>
+            {isProfileComplete && (
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 ml-auto" />
+            )}
+          </div>
+
+          <div className="space-y-2">
+            {/* First Name */}
+            <div>
+              <label className="text-[11px] font-semibold text-gray-500 mb-1 block">Prénom *</label>
+              <input
+                type="text"
+                value={clientFirstName}
+                onChange={(e) => setClientFirstName(e.target.value)}
+                placeholder="Ex: Aminata"
+                className={`w-full h-11 px-3 rounded-xl border text-sm font-medium transition-colors ${
+                  isProfileComplete
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                    : 'bg-white border-gray-200 focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500'
+                }`}
+              />
+            </div>
+
+            {/* Last Name */}
+            <div>
+              <label className="text-[11px] font-semibold text-gray-500 mb-1 block">Nom</label>
+              <input
+                type="text"
+                value={clientLastName}
+                onChange={(e) => setClientLastName(e.target.value)}
+                placeholder="Ex: Koné"
+                className="w-full h-11 px-3 rounded-xl border border-gray-200 bg-white text-sm font-medium transition-colors focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500"
+              />
+            </div>
+          </div>
+
+          {/* Profile complete badge */}
+          {isProfileComplete && (
+            <div className="bg-emerald-50 rounded-xl p-2.5 flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span className="text-xs font-medium text-emerald-700">
+                Profil complet : {clientFirstName}{clientLastName ? ` ${clientLastName}` : ''}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Confirm Payment Button */}
       <Button
         onClick={handleConfirmPayment}
-        disabled={!phoneVerified}
+        disabled={!phoneVerified || !isProfileComplete}
         className={`w-full h-13 font-bold text-base rounded-xl shadow-lg transition-all active:scale-[0.98] ${
-          phoneVerified
+          phoneVerified && isProfileComplete
             ? isWave
               ? 'bg-[#1DC3E0] hover:bg-[#1ab5d1] text-white shadow-[#1DC3E0]/30'
               : 'bg-[#FF6600] hover:bg-[#e85d00] text-white shadow-[#FF6600]/30'
@@ -1036,9 +1099,11 @@ export function CheckoutFlow() {
         }`}
         style={{ height: '52px' }}
       >
-        {phoneVerified
-          ? isWave ? '💳 Payer avec Wave' : '📱 Payer avec Orange Money'
-          : '🔒 Vérifiez votre numéro d\'abord'
+        {!phoneVerified
+          ? '🔒 Vérifiez votre numéro d\'abord'
+          : !isProfileComplete
+          ? '🔒 Entrez votre prénom pour continuer'
+          : isWave ? '💳 Payer avec Wave' : '📱 Payer avec Orange Money'
         }
       </Button>
 
