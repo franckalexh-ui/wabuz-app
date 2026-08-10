@@ -23,6 +23,7 @@ import {
   MessageCircle,
   Loader2,
   RefreshCw,
+  CircleDollarSign,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useCallback } from 'react';
@@ -67,7 +68,6 @@ export function VendorDashboard() {
     if (data) {
       const fetched = data as SupabaseOrder[];
       setOrders(fetched);
-      // Sync pending count with the global store (for BottomNav badge)
       setVendorPendingCount(fetched.filter((o) => o.status === 'pending').length);
     }
     setOrdersLoading(false);
@@ -75,12 +75,10 @@ export function VendorDashboard() {
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  // Update pending count after quick action
   const refreshPendingCount = (updatedOrders: SupabaseOrder[]) => {
     setVendorPendingCount(updatedOrders.filter((o) => o.status === 'pending').length);
   };
 
-  // Clear notification badge when viewing dashboard
   useEffect(() => {
     clearNewOrderCount();
   }, [clearNewOrderCount]);
@@ -91,7 +89,6 @@ export function VendorDashboard() {
 
   // ── Action: update status in Supabase ────────────────────
   const handleQuickAction = async (orderId: string, nextStatus: 'paid' | 'shipped', revertStatus: 'pending' | 'paid') => {
-    // Optimistic UI
     setOrders((prev) => prev.map((o) => o.id === orderId ? { ...o, status: nextStatus } : o));
     if (isSupabaseConfigured) {
       const { error } = await supabase.from('orders').update({ status: nextStatus }).eq('id', orderId);
@@ -103,13 +100,12 @@ export function VendorDashboard() {
     }
     const labels = { paid: 'Paiement confirmé', shipped: 'Commande expédiée' };
     toast({ title: labels[nextStatus], description: `Commande #${orderId.slice(-4)} mise à jour` });
-    // Refresh pending count after action
     refreshPendingCount(
       orders.map((o) => o.id === orderId ? { ...o, status: nextStatus } : o)
     );
   };
 
-  // Compute stats from Supabase orders
+  // Compute stats
   const totalRevenue = orders
     .filter((o) => o.status === 'paid' || o.status === 'shipped' || o.status === 'delivered')
     .reduce((sum, o) => sum + o.total_amount, 0);
@@ -118,21 +114,20 @@ export function VendorDashboard() {
   const shippedOrders = orders.filter((o) => o.status === 'shipped').length;
   const totalOrders = orders.length;
   const productCount = vendorProducts.length;
-  const inStockCount = vendorProducts.filter((p) => p.inStock).length;
 
   // Recent orders (latest 3)
   const recentOrders = orders.slice(0, 3);
 
   return (
-    <div className="pb-6">
-      {/* Store Header Card */}
+    <div className="pb-4">
+      {/* ── Gradient Header with Store Name + Revenue ─────────── */}
       <div className="mx-4 mt-4 mb-5 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-400 p-5 text-white relative overflow-hidden">
         <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full" />
         <div className="absolute -right-4 -bottom-10 w-36 h-36 bg-white/10 rounded-full" />
         <div className="relative z-10">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-lg">
+              <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-lg border border-white/30">
                 {vendorStoreName ? vendorStoreName.charAt(0).toUpperCase() : 'W'}
               </div>
               <div>
@@ -144,13 +139,13 @@ export function VendorDashboard() {
               </div>
             </div>
             <button
-              onClick={() => setView('vendor-products')}
-              className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors"
+              onClick={() => setView('vendor-store')}
+              className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition-colors border border-white/20"
             >
               <Eye className="w-4 h-4" />
             </button>
           </div>
-          {/* Mini Stats Row */}
+          {/* Revenue Summary */}
           <div className="grid grid-cols-3 gap-3">
             <div className="bg-white/15 backdrop-blur-sm rounded-xl p-2.5 text-center">
               <span className="text-lg font-extrabold block">{productCount}</span>
@@ -168,7 +163,43 @@ export function VendorDashboard() {
         </div>
       </div>
 
-      {/* Quick Add Product CTA */}
+      {/* ── 3 Stat Cards (En attente, Payé, Expédié) ──────────── */}
+      <div className="px-4 grid grid-cols-3 gap-3 mb-5">
+        <button
+          onClick={() => setView('vendor-orders')}
+          className="bg-white rounded-2xl border border-gray-100 p-3.5 shadow-sm text-center hover:shadow-md transition-shadow"
+        >
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center mx-auto mb-2">
+            <Clock className="w-5 h-5 text-amber-500" />
+          </div>
+          <span className="text-xl font-extrabold text-gray-900 block">{pendingOrders}</span>
+          <p className="text-[10px] text-gray-400 mt-0.5">En attente</p>
+        </button>
+
+        <button
+          onClick={() => setView('vendor-orders')}
+          className="bg-white rounded-2xl border border-gray-100 p-3.5 shadow-sm text-center hover:shadow-md transition-shadow"
+        >
+          <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center mx-auto mb-2">
+            <DollarSign className="w-5 h-5 text-blue-500" />
+          </div>
+          <span className="text-xl font-extrabold text-gray-900 block">{paidOrders}</span>
+          <p className="text-[10px] text-gray-400 mt-0.5">Payées</p>
+        </button>
+
+        <button
+          onClick={() => setView('vendor-orders')}
+          className="bg-white rounded-2xl border border-gray-100 p-3.5 shadow-sm text-center hover:shadow-md transition-shadow"
+        >
+          <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mx-auto mb-2">
+            <Truck className="w-5 h-5 text-purple-500" />
+          </div>
+          <span className="text-xl font-extrabold text-gray-900 block">{shippedOrders}</span>
+          <p className="text-[10px] text-gray-400 mt-0.5">Expédiées</p>
+        </button>
+      </div>
+
+      {/* ── Quick Add Product CTA ──────────────────────────────── */}
       <div className="px-4 mb-5">
         <button
           onClick={() => setView('vendor-add-product')}
@@ -185,78 +216,11 @@ export function VendorDashboard() {
         </button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="px-4 grid grid-cols-2 gap-3 mb-5">
-        <button
-          onClick={() => setView('vendor-orders')}
-          className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm text-left hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
-              <Clock className="w-4 h-4 text-amber-500" />
-            </div>
-            {pendingOrders > 0 && (
-              <span className="w-5 h-5 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center">
-                {pendingOrders}
-              </span>
-            )}
-          </div>
-          <span className="text-xl font-extrabold text-gray-900">{pendingOrders}</span>
-          <p className="text-[11px] text-gray-400">En attente</p>
-        </button>
-
-        <button
-          onClick={() => setView('vendor-orders')}
-          className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm text-left hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
-              <DollarSign className="w-4 h-4 text-blue-500" />
-            </div>
-            {paidOrders > 0 && (
-              <span className="w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] font-bold flex items-center justify-center">
-                {paidOrders}
-              </span>
-            )}
-          </div>
-          <span className="text-xl font-extrabold text-gray-900">{paidOrders}</span>
-          <p className="text-[11px] text-gray-400">Payées</p>
-        </button>
-
-        <button
-          onClick={() => setView('vendor-orders')}
-          className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm text-left hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center">
-              <Truck className="w-4 h-4 text-purple-500" />
-            </div>
-          </div>
-          <span className="text-xl font-extrabold text-gray-900">{shippedOrders}</span>
-          <p className="text-[11px] text-gray-400">Expédiées</p>
-        </button>
-
-        <button
-          onClick={() => setView('vendor-products')}
-          className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm text-left hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
-              <Package className="w-4 h-4 text-emerald-500" />
-            </div>
-          </div>
-          <span className="text-xl font-extrabold text-gray-900">{inStockCount}/{productCount}</span>
-          <p className="text-[11px] text-gray-400">En stock</p>
-        </button>
-      </div>
-
-
-
-      {/* Incoming Orders Section */}
+      {/* ── Commandes Récentes (last 3) ────────────────────────── */}
       <div className="px-4">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-gray-900">Commandes entrantes</h3>
+            <h3 className="text-sm font-bold text-gray-900">Commandes récentes</h3>
             {pendingOrders > 0 && (
               <span className="px-2 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold animate-pulse">
                 {pendingOrders} nouvelle{pendingOrders > 1 ? 's' : ''}
@@ -287,7 +251,7 @@ export function VendorDashboard() {
                 className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm"
               >
                 <div className="p-3.5 flex items-center gap-3">
-                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+                  <div className="w-12 h-12 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
                     {productImage ? (
                       <img
                         src={productImage}
@@ -299,7 +263,7 @@ export function VendorDashboard() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <Package className="w-6 h-6 text-gray-300" />
+                        <Package className="w-5 h-5 text-gray-300" />
                       </div>
                     )}
                   </div>
@@ -307,18 +271,14 @@ export function VendorDashboard() {
                     <p className="text-sm font-semibold text-gray-900 truncate">{productName}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <OrderStatusBadge status={order.status} />
-                      <span className="text-[11px] text-gray-400">{order.delivery_zone}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="text-[11px] text-gray-400">{order.client_phone}</span>
                     </div>
                   </div>
                   <div className="text-right flex flex-col items-end gap-1.5">
-                    <span className="text-sm font-bold text-gray-900">{formatPrice(order.total_amount)}</span>
+                    <span className="text-sm font-bold text-gray-900 whitespace-nowrap">{formatPrice(order.total_amount)}</span>
                     {order.status === 'pending' && (
                       <button
                         onClick={() => handleQuickAction(order.id, 'paid', 'pending')}
-                        className="px-2.5 py-1 rounded-lg bg-blue-500 text-white text-[10px] font-bold hover:bg-blue-600 transition-colors"
+                        className="px-2.5 py-1 rounded-lg bg-blue-500 text-white text-[10px] font-bold hover:bg-blue-600 transition-colors whitespace-nowrap"
                       >
                         Confirmer
                       </button>
@@ -326,13 +286,13 @@ export function VendorDashboard() {
                     {order.status === 'paid' && (
                       <button
                         onClick={() => handleQuickAction(order.id, 'shipped', 'paid')}
-                        className="px-2.5 py-1 rounded-lg bg-purple-500 text-white text-[10px] font-bold hover:bg-purple-600 transition-colors"
+                        className="px-2.5 py-1 rounded-lg bg-purple-500 text-white text-[10px] font-bold hover:bg-purple-600 transition-colors whitespace-nowrap"
                       >
                         Expédier
                       </button>
                     )}
                     {order.status === 'shipped' && (
-                      <span className="px-2 py-1 rounded-lg bg-purple-50 text-purple-700 text-[9px] font-medium">
+                      <span className="px-2 py-1 rounded-lg bg-purple-50 text-purple-700 text-[9px] font-medium whitespace-nowrap">
                         ⏳ Attente client
                       </span>
                     )}
@@ -364,10 +324,6 @@ function OrderStatusBadge({ status }: { status: string }) {
   const c = config[status] || config.pending;
   return (
     <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${c.bgColor} ${c.color}`}>
-      {status === 'pending' && <AlertCircle className="w-2.5 h-2.5" />}
-      {status === 'paid' && <DollarSign className="w-2.5 h-2.5" />}
-      {status === 'shipped' && <Truck className="w-2.5 h-2.5" />}
-      {status === 'delivered' && <CheckCircle2 className="w-2.5 h-2.5" />}
       {c.label}
     </span>
   );
@@ -483,7 +439,6 @@ function StoreSetup() {
 
       {step === 2 && (
         <div className="space-y-4">
-          {/* Preview */}
           <div className="bg-gray-50 rounded-2xl p-5 text-center">
             <p className="text-xs text-gray-400 mb-3">Aperçu de votre boutique</p>
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-3">

@@ -8,10 +8,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
 
-// Default store ID for the demo — matches the row created in Supabase
 const DEFAULT_STORE_ID = 'a1b2c3d4-1234-5678-9101-e11213141516';
 
-// Suggested images per category
 const SUGGESTED_IMAGES: Record<string, string[]> = {
   smartphones: [
     'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&h=600&fit=crop',
@@ -88,51 +86,28 @@ export function VendorAddProduct() {
 
     setSubmitting(true);
 
-    // Resolve category display name (Supabase stores labels like "Smartphones", not IDs like "smartphones")
-    const categoryName =
-      CATEGORIES.find((c) => c.id === category)?.name ?? category;
-
-    // Use the first uploaded image, fallback to a neutral placeholder
-    const primaryImage =
-      images[0] ??
-      'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop';
-
+    const categoryName = CATEGORIES.find((c) => c.id === category)?.name ?? category;
+    const primaryImage = images[0] ?? 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop';
     const priceNum = parseInt(price, 10);
 
-    // ── Insert into Supabase ────────────────────────────────────
     const { data, error } = await supabase
       .from('products')
-      .insert([
-        {
-          name: name,
-          description: description,
-          price: priceNum,
-          image_url: primaryImage,
-          category: categoryName,
-          store_id: DEFAULT_STORE_ID, // Demo store — on associe le produit à la boutique factice
-        },
-      ])
+      .insert([{
+        name, description, price: priceNum, image_url: primaryImage,
+        category: categoryName, store_id: DEFAULT_STORE_ID,
+      }])
       .select();
 
     if (error) {
-      console.error('Supabase insert error:', error);
-      toast({
-        title: "Erreur lors de l'ajout du produit",
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: "Erreur lors de l'ajout", description: error.message, variant: 'destructive' });
       setSubmitting(false);
       return;
     }
 
-    // ── Success — also push into local store for instant feedback ──
     const insertedRow = Array.isArray(data) && data.length > 0 ? data[0] : null;
     const product = {
       id: insertedRow?.id ? String(insertedRow.id) : `p_new_${Date.now()}`,
-      name,
-      price: priceNum,
-      category,
-      description,
+      name, price: priceNum, category, description,
       images: images.length > 0 ? images : [primaryImage],
       vendorId: 'v_current',
       vendorName: vendorStoreName || 'Ma Boutique',
@@ -147,11 +122,7 @@ export function VendorAddProduct() {
     setCreatedProductName(name);
     setShowSuccess(true);
     setSubmitting(false);
-
-    toast({
-      title: 'Produit ajouté avec succès dans la base de données !',
-      description: `${name} est maintenant visible sur WABUZ`,
-    });
+    toast({ title: 'Produit ajouté avec succès !', description: `${name} est maintenant visible sur WABUZ` });
   };
 
   // Success State
@@ -159,46 +130,35 @@ export function VendorAddProduct() {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center px-6 text-center">
         <div className="relative mb-6">
-          <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center animate-in zoom-in duration-500">
+          <div className="w-24 h-24 rounded-full bg-emerald-100 flex items-center justify-center">
             <CheckCircle2 className="w-14 h-14 text-emerald-500" />
           </div>
-          <div className="absolute -top-1 -right-1 w-8 h-8 bg-amber-400 rounded-full flex items-center justify-center animate-in zoom-in duration-700">
+          <div className="absolute -top-1 -right-1 w-8 h-8 bg-amber-400 rounded-full flex items-center justify-center">
             <Sparkles className="w-4 h-4 text-white" />
           </div>
         </div>
         <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Produit publié !</h2>
         <p className="text-sm text-gray-500 mb-2">
-          <span className="font-semibold text-gray-700">{createdProductName}</span> est maintenant visible par les clients
+          <span className="font-semibold text-gray-700">{createdProductName}</span> est maintenant visible
         </p>
-        <p className="text-xs text-gray-400 mb-8">Les acheteurs à Abidjan peuvent dès à présent le commander</p>
+        <p className="text-xs text-gray-400 mb-8">Les acheteurs à Abidjan peuvent le commander</p>
 
         <div className="w-full space-y-3">
           <Button
             onClick={() => {
-              setShowSuccess(false);
-              setName('');
-              setPrice('');
-              setCategory('');
-              setDescription('');
-              setImages([]);
+              setShowSuccess(false); setName(''); setPrice('');
+              setCategory(''); setDescription(''); setImages([]);
             }}
             className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-500/30"
           >
             Ajouter un autre produit
           </Button>
           <Button
-            onClick={() => setView('vendor-products')}
+            onClick={() => setView('vendor-store')}
             variant="outline"
             className="w-full h-12 rounded-xl font-semibold"
           >
-            Voir mes produits
-          </Button>
-          <Button
-            onClick={() => setView('vendor-dashboard')}
-            variant="ghost"
-            className="w-full h-10 text-gray-400 text-sm"
-          >
-            Retour au tableau de bord
+            Voir ma boutique
           </Button>
         </div>
       </div>
@@ -209,8 +169,39 @@ export function VendorAddProduct() {
   const suggestedImages = category ? SUGGESTED_IMAGES[category] || [] : [];
 
   return (
-    <div className="pb-6">
-      {/* Header */}
+    <div className="pb-4">
+      {/* ── Live Preview Card (at top, updates instantly) ──────── */}
+      {(name || priceNum > 0 || images.length > 0) && (
+        <div className="px-4 pt-4 mb-2">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Aperçu en direct</p>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-md p-3 flex gap-3">
+            <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 relative">
+              {images[0] ? (
+                <img src={images[0]} alt={name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-3xl bg-gradient-to-br from-gray-100 to-gray-50">
+                  {category ? CATEGORIES.find((c) => c.id === category)?.icon : '📦'}
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+                {name || 'Nom du produit'}
+              </p>
+              <p className="text-base font-bold text-orange-600 mt-0.5">
+                {priceNum > 0 ? formatPrice(priceNum) : '— FCFA'}
+              </p>
+              {category && (
+                <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium inline-block mt-1">
+                  {CATEGORIES.find((c) => c.id === category)?.name}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Header ─────────────────────────────────────────────── */}
       <div className="px-4 pt-4 pb-2">
         <h2 className="text-lg font-bold text-gray-900">Nouveau produit</h2>
         <span className="text-xs text-gray-400">Remplissez les informations ci-dessous</span>
@@ -248,17 +239,16 @@ export function VendorAddProduct() {
               value={imageUrl}
               onChange={(e) => setImageUrl(e.target.value)}
               placeholder="Collez l'URL d'une image"
-              className="flex-1 h-10 px-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500"
+              className="flex-1 h-12 px-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500"
               onKeyDown={(e) => e.key === 'Enter' && handleAddImage()}
             />
             <Button
               onClick={handleAddImage}
               variant="outline"
-              size="sm"
-              className="h-10 px-4 border-orange-200 text-orange-600 hover:bg-orange-50"
+              className="h-12 px-4 border-orange-200 text-orange-600 hover:bg-orange-50 rounded-xl"
             >
               <Link2 className="w-4 h-4 mr-1" />
-              Ajouter
+              OK
             </Button>
           </div>
 
@@ -283,7 +273,7 @@ export function VendorAddProduct() {
           )}
         </div>
 
-        {/* Product Name */}
+        {/* Product Name - large rounded input */}
         <div>
           <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
             Nom du produit <span className="text-red-400">*</span>
@@ -293,11 +283,11 @@ export function VendorAddProduct() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Ex: Samsung Galaxy A54 128Go"
-            className="w-full h-12 px-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
+            className="w-full h-14 px-4 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
           />
         </div>
 
-        {/* Price */}
+        {/* Price - large rounded input */}
         <div>
           <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
             Prix (FCFA) <span className="text-red-400">*</span>
@@ -308,7 +298,7 @@ export function VendorAddProduct() {
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               placeholder="185000"
-              className="w-full h-12 px-4 pr-16 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
+              className="w-full h-14 px-4 pr-16 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
             />
             <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">
               FCFA
@@ -316,7 +306,7 @@ export function VendorAddProduct() {
           </div>
         </div>
 
-        {/* Category */}
+        {/* Category - pill selection */}
         <div>
           <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
             Catégorie <span className="text-red-400">*</span>
@@ -339,7 +329,7 @@ export function VendorAddProduct() {
           </div>
         </div>
 
-        {/* Description */}
+        {/* Description - large rounded textarea */}
         <div>
           <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
             Description <span className="text-red-400">*</span>
@@ -355,39 +345,12 @@ export function VendorAddProduct() {
         </div>
       </div>
 
-      {/* Live Preview */}
-      {name && priceNum > 0 && (
-        <div className="px-4 mt-6">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Aperçu</p>
-          <div className="bg-gray-50 rounded-2xl p-4 flex gap-3">
-            <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-200 flex-shrink-0">
-              {images[0] ? (
-                <img src={images[0]} alt={name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-2xl">
-                  {category ? CATEGORIES.find((c) => c.id === category)?.icon : '📦'}
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 line-clamp-1">{name}</p>
-              <p className="text-base font-bold text-orange-600 mt-0.5">{formatPrice(priceNum)}</p>
-              {category && (
-                <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium">
-                  {CATEGORIES.find((c) => c.id === category)?.name}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Submit Button */}
       <div className="px-4 mt-6">
         <Button
           onClick={handleSubmit}
           disabled={!name || !price || !category || !description || submitting}
-          className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50 transition-all active:scale-[0.98]"
+          className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50 transition-all active:scale-[0.98]"
         >
           {submitting ? (
             <>

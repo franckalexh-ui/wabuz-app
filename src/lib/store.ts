@@ -18,7 +18,8 @@ export type AppView =
   | 'vendor-products'
   | 'vendor-orders'
   | 'vendor-add-product'
-  | 'vendor-store-setup';
+  | 'vendor-store-setup'
+  | 'vendor-store';
 
 interface CartItem {
   product: Product;

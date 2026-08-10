@@ -12,6 +12,7 @@ import { VendorDashboard } from '@/components/wabuz/VendorDashboard';
 import { VendorProducts } from '@/components/wabuz/VendorProducts';
 import { VendorOrders } from '@/components/wabuz/VendorOrders';
 import { VendorAddProduct } from '@/components/wabuz/VendorAddProduct';
+import { VendorStore } from '@/components/wabuz/VendorStore';
 import { useEffect } from 'react';
 
 export default function Home() {
@@ -53,6 +54,8 @@ export default function Home() {
         return <VendorAddProduct />;
       case 'vendor-store-setup':
         return <VendorDashboard />;
+      case 'vendor-store':
+        return <VendorStore />;
 
       default:
         return <ClientHome />;
@@ -63,7 +66,7 @@ export default function Home() {
     <div className="min-h-screen bg-white flex flex-col">
       <Header />
       <main className="flex-1 max-w-lg mx-auto w-full">
-        <div className="page-enter">
+        <div className="page-enter pb-24">
           {renderView()}
         </div>
       </main>

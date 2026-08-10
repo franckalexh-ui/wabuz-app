@@ -19,6 +19,7 @@ import {
   Shield,
   Loader2,
   RefreshCw,
+  Filter,
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
@@ -27,7 +28,6 @@ import { toast } from '@/hooks/use-toast';
 type OrderStatus = 'pending' | 'paid' | 'shipped' | 'delivered';
 type OrderFilter = 'all' | OrderStatus;
 
-/** Shape returned by Supabase with the products join. */
 interface SupabaseOrder {
   id: string;
   product_id: string;
@@ -46,7 +46,6 @@ interface SupabaseOrder {
   } | null;
 }
 
-/** Store ID for the demo vendor (same as the one in Supabase). */
 const STORE_ID = 'a1b2c3d4-1234-5678-9101-e11213141516';
 
 // ── Status Config ────────────────────────────────────────────
@@ -76,7 +75,6 @@ const STATUS_CONFIG: Record<OrderStatus, {
     color: 'text-purple-700',
     bgColor: 'bg-purple-50',
     icon: <Truck className="w-4 h-4 text-purple-500" />,
-    // Vendors CANNOT mark as delivered — only the client can confirm receipt
   },
   delivered: {
     label: 'Livré',
@@ -91,7 +89,6 @@ const FILTERS: { key: OrderFilter; label: string }[] = [
   { key: 'pending', label: 'En attente' },
   { key: 'paid', label: 'Payées' },
   { key: 'shipped', label: 'Expédiées' },
-  { key: 'delivered', label: 'Livrées' },
 ];
 
 // ── Component ────────────────────────────────────────────────
@@ -104,7 +101,6 @@ export function VendorOrders() {
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  // ── Fetch orders from Supabase ─────────────────────────────
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -127,7 +123,6 @@ export function VendorOrders() {
     } else if (data) {
       const fetched = data as SupabaseOrder[];
       setOrders(fetched);
-      // Sync pending count with the global store (for BottomNav badge)
       setVendorPendingCount(fetched.filter((o) => o.status === 'pending').length);
     }
     setLoading(false);
@@ -137,11 +132,9 @@ export function VendorOrders() {
     fetchOrders();
   }, [fetchOrders]);
 
-  // ── Action: update order status in Supabase ────────────────
   const handleAction = async (orderId: string, nextStatus: OrderStatus) => {
     setActionLoading(orderId);
 
-    // Optimistic UI update
     setOrders((prev) =>
       prev.map((o) =>
         o.id === orderId ? { ...o, status: nextStatus } : o
@@ -162,7 +155,6 @@ export function VendorOrders() {
         .eq('id', orderId);
 
       if (updateError) {
-        // Revert on error
         setOrders((prev) =>
           prev.map((o) =>
             o.id === orderId ? { ...o, status: nextStatus === 'paid' ? 'pending' : nextStatus === 'shipped' ? 'paid' : 'shipped' } : o
@@ -182,14 +174,12 @@ export function VendorOrders() {
       title: statusLabels[nextStatus],
       description: `La commande #${orderId.slice(-4)} a été mise à jour`,
     });
-    // Refresh pending count after status change
     setVendorPendingCount(
       orders.filter((o) => o.id !== orderId ? o.status === 'pending' : nextStatus === 'pending').length
     );
     setActionLoading(null);
   };
 
-  // ── Derived data ───────────────────────────────────────────
   const filteredOrders = filter === 'all'
     ? orders
     : orders.filter((o) => o.status === filter);
@@ -202,12 +192,19 @@ export function VendorOrders() {
     delivered: orders.filter((o) => o.status === 'delivered').length,
   };
 
-  // ── Render ─────────────────────────────────────────────────
   return (
-    <div className="pb-6">
-      {/* Summary Bar */}
+    <div className="pb-4">
+      {/* ── Header ─────────────────────────────────────────────── */}
       <div className="px-4 pt-4 pb-2">
-        <h2 className="text-lg font-bold text-gray-900">Commandes</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-gray-900">Commandes</h2>
+          <button
+            onClick={fetchOrders}
+            className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center hover:bg-gray-100 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4 text-gray-400" />
+          </button>
+        </div>
         <div className="flex items-center gap-3 mt-1">
           <span className="text-xs text-gray-400">{orders.length} commande{orders.length > 1 ? 's' : ''}</span>
           {counts.pending > 0 && (
@@ -219,7 +216,7 @@ export function VendorOrders() {
         </div>
       </div>
 
-      {/* Filter Tabs */}
+      {/* ── Tab Filters (Pill style) ───────────────────────────── */}
       <div className="px-4 mb-4 overflow-x-auto scrollbar-hide">
         <div className="flex gap-2" style={{ minWidth: 'max-content' }}>
           {FILTERS.map((f) => (
@@ -271,7 +268,7 @@ export function VendorOrders() {
         </div>
       )}
 
-      {/* Orders List */}
+      {/* ── Orders List ────────────────────────────────────────── */}
       {!loading && !error && (
         <div className="px-4 space-y-3">
           {filteredOrders.map((order) => {
@@ -280,7 +277,6 @@ export function VendorOrders() {
             const product = order.products;
             const productImage = product?.image_url || '';
             const productName = product?.name || 'Produit';
-            const productPrice = product?.price || 0;
             const isActing = actionLoading === order.id;
 
             return (
@@ -313,13 +309,12 @@ export function VendorOrders() {
                       <p className="text-sm font-semibold text-gray-900 truncate">{productName}</p>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${config.bgColor} ${config.color}`}>
-                          {config.icon}
                           {config.label}
                         </span>
                         <span className="text-[10px] text-gray-400">#{order.id.slice(-4)}</span>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end">
                       <span className="text-sm font-bold text-gray-900 block">{formatPrice(order.total_amount)}</span>
                       <button
                         onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
@@ -356,7 +351,7 @@ export function VendorOrders() {
                     </div>
                   )}
 
-                  {/* Shipped — waiting for client confirmation */}
+                  {/* Shipped — waiting for client */}
                   {order.status === 'shipped' && !isExpanded && (
                     <div className="mt-3 flex items-center gap-2 bg-purple-50 rounded-xl px-3 py-2.5">
                       <Clock className="w-3.5 h-3.5 text-purple-500 flex-shrink-0" />
@@ -394,9 +389,9 @@ export function VendorOrders() {
                       </a>
                     </div>
 
-                    {/* Escrow Status Banner for Paid Orders */}
+                    {/* Escrow Status Banner */}
                     {order.status === 'paid' && (
-                      <div className="bg-amber-50 rounded-xl p-3 flex items-start gap-2 mb-3">
+                      <div className="bg-amber-50 rounded-xl p-3 flex items-start gap-2">
                         <Lock className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
                         <div>
                           <span className="text-[11px] font-bold text-amber-800 block">Fonds en Escrow</span>
@@ -407,7 +402,6 @@ export function VendorOrders() {
                       </div>
                     )}
 
-                    {/* Escrow Released Banner for Delivered Orders */}
                     {order.status === 'delivered' && (
                       <div className="bg-emerald-50 rounded-xl p-2.5 flex items-center gap-2">
                         <Shield className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
@@ -415,7 +409,7 @@ export function VendorOrders() {
                       </div>
                     )}
 
-                    {/* Order Details Grid */}
+                    {/* Details Grid */}
                     <div className="grid grid-cols-2 gap-2">
                       <div className="bg-white rounded-xl p-3">
                         <div className="flex items-center gap-1.5 mb-1">
@@ -467,7 +461,7 @@ export function VendorOrders() {
                       </div>
                     </div>
 
-                    {/* Action Buttons — vendor can only advance to paid/shipped */}
+                    {/* Action Buttons */}
                     {config.nextAction && (
                       <button
                         onClick={() => handleAction(order.id, config.nextAction!.nextStatus)}
@@ -485,7 +479,6 @@ export function VendorOrders() {
                       </button>
                     )}
 
-                    {/* Shipped — waiting for client to confirm receipt */}
                     {order.status === 'shipped' && (
                       <div className="flex items-center gap-2 bg-purple-50 rounded-xl px-3 py-2.5">
                         <Clock className="w-4 h-4 text-purple-500 flex-shrink-0" />

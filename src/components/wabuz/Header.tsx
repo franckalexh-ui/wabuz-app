@@ -8,8 +8,8 @@ export function Header() {
   const cartCount = getCartItemCount();
 
   // Show back button for all views except the "root" views
-  const showBack = view !== 'home' && view !== 'vendor-dashboard';
-  const showLogo = view === 'home' || view === 'vendor-dashboard';
+  const showBack = view !== 'home' && view !== 'vendor-dashboard' && view !== 'vendor-store';
+  const showLogo = view === 'home' || view === 'vendor-dashboard' || view === 'vendor-store';
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
