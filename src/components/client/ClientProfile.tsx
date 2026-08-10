@@ -8,10 +8,16 @@ import {
   ChevronRight,
   Shield,
   ShoppingBag,
-  Bell,
   HelpCircle,
+  ArrowRightLeft,
+  MapPin,
+  Globe,
+  MessageCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+// WhatsApp support link (dummy number for V1)
+const WHATSAPP_SUPPORT_URL = 'https://wa.me/2250700000000?text=Bonjour%2C%20j%27ai%20besoin%20d%27aide%20sur%20WABUZ';
 
 export function ClientProfile() {
   const {
@@ -21,6 +27,7 @@ export function ClientProfile() {
     clientPhone,
     clientLogout,
     setView,
+    setMode,
     getActiveOrdersCount,
   } = useAppStore();
 
@@ -30,14 +37,23 @@ export function ClientProfile() {
     clientLogout();
   };
 
+  const handleSwitchToVendor = () => {
+    setMode('vendor');
+  };
+
+  const handleHelpWhatsApp = () => {
+    window.open(WHATSAPP_SUPPORT_URL, '_blank');
+  };
+
   return (
     <div className="px-4 pt-4 pb-6">
-      {/* Profile Header */}
-      <div className="bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-400 rounded-2xl p-5 text2 text-white relative overflow-hidden mb-5">
+      {/* ── Profile Header (Jumia-inspired gradient card) ────────── */}
+      <div className="bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-400 rounded-2xl p-5 text-white relative overflow-hidden mb-5">
         <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full" />
         <div className="absolute -right-4 -bottom-10 w-36 h-36 bg-white/10 rounded-full" />
         <div className="relative z-10 flex items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
+          {/* Avatar */}
+          <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-bold text-2xl flex-shrink-0 border border-white/30">
             {clientLoggedIn && clientFirstName
               ? clientFirstName.charAt(0).toUpperCase()
               : 'W'}
@@ -65,7 +81,7 @@ export function ClientProfile() {
         </div>
       </div>
 
-      {/* Account Status */}
+      {/* ── Account Status Banner ─────────────────────────────────── */}
       {clientLoggedIn ? (
         <div className="bg-emerald-50 rounded-xl p-3 flex items-center gap-2.5 mb-5">
           <Shield className="w-5 h-5 text-emerald-500 flex-shrink-0" />
@@ -76,7 +92,7 @@ export function ClientProfile() {
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
         </div>
       ) : (
-        <div className="bg-amber-50 rounded-xl p-3 flex# flex items-center gap-2.5 mb-5">
+        <div className="bg-amber-50 rounded-xl p-3 flex items-center gap-2.5 mb-5">
           <Shield className="w-5 h-5 text-amber-500 flex-shrink-0" />
           <div className="flex-1">
             <span className="text-xs font-bold text-amber-800 block">Compte non créé</span>
@@ -85,7 +101,7 @@ export function ClientProfile() {
         </div>
       )}
 
-      {/* Quick Stats */}
+      {/* ── Quick Stats (3-column) ─────────────────────────────────── */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         <button
           onClick={() => setView('orders')}
@@ -104,16 +120,16 @@ export function ClientProfile() {
         <button
           className="bg-white rounded-xl border border-gray-100 p-3 text-center hover:shadow-md transition-shadow"
         >
-          <Bell className="w-5 h-5 text-gray-400 mx-auto mb-1" />
-          <span className="text-[10px] text-gray-400">Alertes</span>
+          <MessageCircle className="w-5 h-5 text-emerald-500 mx-auto mb-1" />
+          <span className="text-[10px] text-gray-400">Messages</span>
         </button>
       </div>
 
-      {/* Menu Items */}
+      {/* ── Menu List (Jumia-style with chevrons) ─────────────────── */}
       <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-50 mb-5">
         <MenuItem
           icon={<ShoppingBag className="w-4 h-4 text-orange-500" />}
-          label="Mes commandes"
+          label="Mes Commandes"
           subtitle={activeOrders > 0 ? `${activeOrders} commande${activeOrders > 1 ? 's' : ''} en cours` : 'Aucune commande en cours'}
           onClick={() => setView('orders')}
         />
@@ -124,14 +140,49 @@ export function ClientProfile() {
           onClick={() => {}}
         />
         <MenuItem
+          icon={<ArrowRightLeft className="w-4 h-4 text-violet-500" />}
+          label="Basculer en Mode Vendeur"
+          subtitle="Gérez votre boutique et vos produits"
+          onClick={handleSwitchToVendor}
+        />
+        <MenuItem
           icon={<HelpCircle className="w-4 h-4 text-blue-500" />}
-          label="Aide & Support"
-          subtitle="FAQ, WhatsApp, contact"
-          onClick={() => {}}
+          label="Aide & Assistance"
+          subtitle="Contactez-nous sur WhatsApp"
+          onClick={handleHelpWhatsApp}
         />
       </div>
 
-      {/* Logout Button */}
+      {/* ── Settings Section (Static V1) ──────────────────────────── */}
+      <div className="mb-5">
+        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
+          Paramètres
+        </h3>
+        <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-50">
+          <div className="flex items-center gap-3 px-4 py-3.5">
+            <div className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
+              <MapPin className="w-4 h-4 text-orange-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-semibold text-gray-900 block">Pays</span>
+              <span className="text-[11px] text-gray-400 block">Côte d'Ivoire</span>
+            </div>
+            <span className="text-xs text-gray-400">🇨🇮</span>
+          </div>
+          <div className="flex items-center gap-3 px-4 py-3.5">
+            <div className="w-9 h-9 rounded-xl bg-gray-50 flex items-center justify-center flex-shrink-0">
+              <Globe className="w-4 h-4 text-blue-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-semibold text-gray-900 block">Langue</span>
+              <span className="text-[11px] text-gray-400 block">Français</span>
+            </div>
+            <span className="text-xs text-gray-400">FR</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Logout Button ──────────────────────────────────────────── */}
       {clientLoggedIn && (
         <Button
           onClick={handleLogout}
@@ -142,6 +193,11 @@ export function ClientProfile() {
           Se déconnecter
         </Button>
       )}
+
+      {/* ── Version tag ─────────────────────────────────────────────── */}
+      <p className="text-center text-[10px] text-gray-300 mt-6">
+        WABUZ v1.0 · Abidjan
+      </p>
     </div>
   );
 }

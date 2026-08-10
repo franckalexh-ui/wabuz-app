@@ -27,6 +27,8 @@ export default function Home() {
       // Client views
       case 'home':
         return <ClientHome />;
+      case 'search':
+        return <ClientHome autoFocusSearch />;
       case 'product-detail':
         return <ProductDetailWrapper />;
       case 'checkout':

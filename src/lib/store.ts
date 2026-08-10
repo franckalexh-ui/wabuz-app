@@ -7,6 +7,7 @@ export type EscrowStatus = 'idle' | 'collecting' | 'held' | 'releasing' | 'relea
 
 export type AppView =
   | 'home'
+  | 'search'
   | 'product-detail'
   | 'checkout'
   | 'payment-processing'
@@ -63,6 +64,9 @@ interface AppState {
   clientLastName: string;
   clientLoggedIn: boolean;
 
+  // Search Focus State
+  searchFocused: boolean;
+
   // Actions
   setMode: (mode: AppMode) => void;
   setView: (view: AppView) => void;
@@ -102,6 +106,9 @@ interface AppState {
   setClientProfile: (phone: string, firstName: string, lastName: string) => void;
   clientLogout: () => void;
   loadClientFromStorage: () => void;
+
+  // Search Focus Actions
+  setSearchFocused: (focused: boolean) => void;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -136,6 +143,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   clientFirstName: '',
   clientLastName: '',
   clientLoggedIn: false,
+  searchFocused: false,
 
   // Actions
   setMode: (mode) => set({ mode, view: mode === 'client' ? 'home' : 'vendor-dashboard' }),
@@ -380,4 +388,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Invalid localStorage data — ignore
     }
   },
+
+  setSearchFocused: (focused) => set({ searchFocused: focused }),
 }));

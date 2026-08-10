@@ -1,7 +1,7 @@
 'use client';
 
 import { useAppStore } from '@/lib/store';
-import { Home, Grid3X3, ShoppingBag, User } from 'lucide-react';
+import { Home, Search, ShoppingBag, User, Grid3X3 } from 'lucide-react';
 import type { AppView } from '@/lib/store';
 
 interface NavItem {
@@ -16,7 +16,7 @@ export function BottomNav() {
 
   const clientNavItems: NavItem[] = [
     { icon: <Home className="w-5 h-5" />, label: 'Accueil', view: 'home' },
-    { icon: <Grid3X3 className="w-5 h-5" />, label: 'Catégories', view: 'home' },
+    { icon: <Search className="w-5 h-5" />, label: 'Recherche', view: 'search' },
     { icon: <ShoppingBag className="w-5 h-5" />, label: 'Commandes', view: 'orders' },
     { icon: <User className="w-5 h-5" />, label: 'Profil', view: 'profile' },
   ];
@@ -36,7 +36,9 @@ export function BottomNav() {
         {navItems.map((item) => {
           const isActive = view === item.view || 
             (item.view === 'home' && (view === 'home' || view === 'product-detail' || view === 'checkout' || view === 'payment-processing' || view === 'payment-success')) ||
+            (item.view === 'search' && view === 'search') ||
             (item.view === 'orders' && view === 'orders') ||
+            (item.view === 'profile' && view === 'profile') ||
             (item.view === 'vendor-dashboard' && (view === 'vendor-dashboard' || view === 'vendor-add-product')) ||
             (item.view === 'vendor-products' && view === 'vendor-products') ||
             (item.view === 'vendor-orders' && view === 'vendor-orders');

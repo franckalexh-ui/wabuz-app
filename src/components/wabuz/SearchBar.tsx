@@ -2,15 +2,28 @@
 
 import { Search, X } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
+import { useRef, useEffect } from 'react';
 
-export function SearchBar() {
+interface SearchBarProps {
+  autoFocus?: boolean;
+}
+
+export function SearchBar({ autoFocus = false }: SearchBarProps) {
   const { searchQuery, setSearchQuery } = useAppStore();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (autoFocus && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [autoFocus]);
 
   return (
     <div className="px-4 py-2">
       <div className="relative">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
         <input
+          ref={inputRef}
           type="text"
           placeholder="Rechercher un produit..."
           value={searchQuery}

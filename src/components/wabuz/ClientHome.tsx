@@ -32,7 +32,11 @@ function normalizeRow(row: any): Product {
   };
 }
 
-export function ClientHome() {
+interface ClientHomeProps {
+  autoFocusSearch?: boolean;
+}
+
+export function ClientHome({ autoFocusSearch = false }: ClientHomeProps) {
   const { searchQuery, selectedCategory } = useAppStore();
 
   // ── Products state ──────────────────────────────────────────
@@ -165,7 +169,7 @@ export function ClientHome() {
   return (
     <div className="pb-4">
       {/* Search Bar */}
-      <SearchBar />
+      <SearchBar autoFocus={autoFocusSearch} />
 
       {/* Categories */}
       <CategoryBar />
