@@ -273,7 +273,11 @@ export default function ClientOrders() {
           <button
             onClick={() => {
               const phone = order.client_phone;
-              const message = encodeURIComponent('Bonjour, je vous contacte concernant ma commande sur WABUZ.');
+              const vendorName = order.products?.name || 'vendeur';
+              const deliveryZone = order.delivery_zone || 'Abidjan';
+              const message = encodeURIComponent(
+                `Bonjour, je vous contacte concernant ma commande WABUZ pour "${vendorName}" (Escrow actif). Je souhaite organiser ma livraison à ${deliveryZone}.`
+              );
               window.open(`https://wa.me/${phone.replace(/\D/g, '')}?text=${message}`, '_blank');
             }}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
