@@ -13,37 +13,16 @@ import { VendorProducts } from '@/components/wabuz/VendorProducts';
 import { VendorOrders } from '@/components/wabuz/VendorOrders';
 import { VendorAddProduct } from '@/components/wabuz/VendorAddProduct';
 import { VendorStore } from '@/components/wabuz/VendorStore';
-import { AntiScamModal } from '@/components/wabuz/AntiScamModal';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 export default function Home() {
-  const { view, mode, clientLoggedIn, loadClientFromStorage } = useAppStore();
-
-  // Anti-scam modal state: show once when client logs in for the first time
-  const [showAntiScam, setShowAntiScam] = useState(false);
-  const [antiScamChecked, setAntiScamChecked] = useState(false);
+  const { view, mode, loadClientFromStorage } = useAppStore();
+  void mode; // mode used by BottomNav implicitly
 
   // Load client profile from localStorage on mount (auto-login)
   useEffect(() => {
     loadClientFromStorage();
   }, [loadClientFromStorage]);
-
-  // Show anti-scam modal when client first becomes logged in
-  // (either via localStorage auto-login or after checkout profile save)
-  useEffect(() => {
-    if (antiScamChecked) return; // Already checked once
-
-    if (clientLoggedIn) {
-      // Client is logged in — check if they've seen the warning
-      if (typeof window !== 'undefined') {
-        const seen = localStorage.getItem('wabuz_seen_warning');
-        if (!seen) {
-          setShowAntiScam(true);
-        }
-      }
-      setAntiScamChecked(true);
-    }
-  }, [clientLoggedIn, antiScamChecked]);
 
   const renderView = () => {
     switch (view) {
@@ -93,12 +72,6 @@ export default function Home() {
         </div>
       </main>
       <BottomNav />
-
-      {/* Anti-Scam Modal — shown once per device on first login */}
-      <AntiScamModal
-        forceShow={showAntiScam}
-        onDismiss={() => setShowAntiScam(false)}
-      />
     </div>
   );
 }

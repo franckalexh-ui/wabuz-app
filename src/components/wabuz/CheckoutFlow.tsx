@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabaseClient';
+import { AntiScamModal } from '@/components/wabuz/AntiScamModal';
 
 // ── Wave / Orange Money Brand Colors ─────────────────────────
 const WAVE_COLOR = '#1DC3E0';
@@ -156,6 +157,21 @@ export function CheckoutFlow() {
   >(paymentStatus === 'success' ? 'success' : 'confirming');
   const [showEscrowDetail, setShowEscrowDetail] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
+
+  // ── Anti-Scam Modal State ──────────────────────────────
+  const [showAntiScam, setShowAntiScam] = useState(false);
+
+  // Show anti-scam modal when payment succeeds (once per device)
+  useEffect(() => {
+    if (step === 'success' && typeof window !== 'undefined') {
+      const seen = localStorage.getItem('wabuz_seen_warning');
+      if (!seen) {
+        // Small delay so the success screen renders first
+        const timer = setTimeout(() => setShowAntiScam(true), 800);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [step]);
 
   // ── OTP / Phone Verification State ──────────────────────
   const [otpCode, setOtpCode] = useState<string | null>(null);
@@ -534,6 +550,12 @@ export function CheckoutFlow() {
             Suivre ma commande
           </button>
         </div>
+
+        {/* Anti-Scam Modal — shown once per device after first payment success */}
+        <AntiScamModal
+          forceShow={showAntiScam}
+          onDismiss={() => setShowAntiScam(false)}
+        />
       </div>
     );
   }
