@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import { toast } from '@/hooks/use-toast';
+import { AntiScamModal } from '@/components/wabuz/AntiScamModal';
 
 // ── Types ────────────────────────────────────────────────────
 type OrderStatus = 'pending' | 'paid' | 'shipped' | 'delivered';
@@ -64,6 +65,20 @@ export default function ClientOrders() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'delivered'>('active');
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+
+  // ── Anti-Scam Modal State ──────────────────────────────
+  const [showAntiScam, setShowAntiScam] = useState(false);
+  const [pendingWhatsappUrl, setPendingWhatsappUrl] = useState<string | null>(null);
+
+  const handleAntiScamDismiss = () => {
+    localStorage.setItem('wabuz_seen_warning', 'true');
+    setShowAntiScam(false);
+    // Now open WhatsApp with the pending URL
+    if (pendingWhatsappUrl) {
+      window.open(pendingWhatsappUrl, '_blank');
+      setPendingWhatsappUrl(null);
+    }
+  };
 
   // ── Fetch orders from Supabase ─────────────────────────────
   const fetchOrders = useCallback(async () => {
@@ -278,7 +293,16 @@ export default function ClientOrders() {
               const message = encodeURIComponent(
                 `Bonjour, je vous contacte concernant ma commande WABUZ pour "${vendorName}" (Escrow actif). Je souhaite organiser ma livraison à ${deliveryZone}.`
               );
-              window.open(`https://wa.me/${phone.replace(/\D/g, '')}?text=${message}`, '_blank');
+              const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${message}`;
+
+              // Anti-scam gate: show warning once per device before opening WhatsApp
+              const hasSeenWarning = localStorage.getItem('wabuz_seen_warning');
+              if (!hasSeenWarning) {
+                setPendingWhatsappUrl(whatsappUrl);
+                setShowAntiScam(true);
+              } else {
+                window.open(whatsappUrl, '_blank');
+              }
             }}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
           >
@@ -391,6 +415,9 @@ export default function ClientOrders() {
           </>
         )}
       </div>
+
+      {/* Anti-Scam Modal — shown once per device when first clicking Contacter */}
+      {showAntiScam && <AntiScamModal onClose={handleAntiScamDismiss} />}
     </div>
   );
 }
