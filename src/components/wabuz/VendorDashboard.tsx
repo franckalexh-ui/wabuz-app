@@ -338,14 +338,21 @@ function StoreSetup() {
 
   const CATEGORIES = [
     { value: 'smartphones', label: 'Smartphones', icon: '📱' },
+    { value: 'informatique', label: 'Informatique', icon: '💻' },
     { value: 'mode', label: 'Mode', icon: '👗' },
-    { value: 'beaute', label: 'Beauté', icon: '💄' },
-    { value: 'maison', label: 'Maison', icon: '🏠' },
+    { value: 'beaute', label: 'Beauté & Cosmétiques', icon: '💄' },
+    { value: 'maison', label: 'Maison & Cuisine', icon: '🏠' },
+    { value: 'electromenager', label: 'Électroménager', icon: '🔌' },
+    { value: 'auto', label: 'Auto & Moto', icon: '🚗' },
     { value: 'autre', label: 'Autre', icon: '📦' },
   ];
 
+  // WhatsApp validation: exactly 10 digits starting with 0
+  const isWhatsappValid = /^0[0-9]{9}$/.test(whatsapp.replace(/\s/g, ''));
+  const showWhatsappError = whatsapp.length > 0 && !isWhatsappValid;
+
   const handleCreate = () => {
-    if (name && whatsapp && category) {
+    if (name && isWhatsappValid && category) {
       const phone = whatsapp.replace(/\D/g, '');
       setVendorStore(name, phone, whatsapp, category);
       setIsStoreCreated(true);
@@ -422,10 +429,20 @@ function StoreSetup() {
                 value={whatsapp}
                 onChange={(e) => setWhatsapp(e.target.value)}
                 placeholder="07 XX XX XX XX"
-                className="w-full h-14 pl-14 pr-4 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
+                className={`w-full h-14 pl-14 pr-4 rounded-xl border text-base focus:outline-none focus:ring-2 transition-all ${
+                  showWhatsappError
+                    ? 'border-red-400 focus:ring-red-500/30 focus:border-red-500'
+                    : 'border-gray-200 focus:ring-orange-500/30 focus:border-orange-500'
+                }`}
               />
             </div>
-            <p className="text-[11px] text-gray-400 mt-1">Vos clients vous contacteront via ce numéro</p>
+            {showWhatsappError ? (
+              <p className="text-[11px] text-red-500 mt-1 font-medium">
+                Numéro invalide. Entrez 10 chiffres (ex: 07XXXXXXXX).
+              </p>
+            ) : (
+              <p className="text-[11px] text-gray-400 mt-1">Vos clients vous contacteront via ce numéro</p>
+            )}
           </div>
 
           <div>
@@ -459,8 +476,8 @@ function StoreSetup() {
               Retour
             </Button>
             <Button
-              onClick={() => whatsapp.trim() && category && setStep(2)}
-              disabled={!whatsapp.trim() || !category}
+              onClick={() => isWhatsappValid && category && setStep(2)}
+              disabled={!isWhatsappValid || !category}
               className="flex-1 h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50"
             >
               Suivant
