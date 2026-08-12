@@ -24,6 +24,7 @@ import {
   Loader2,
   RefreshCw,
   CircleDollarSign,
+  XCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useCallback } from 'react';
@@ -336,6 +337,36 @@ function StoreSetup() {
   const [category, setCategory] = useState('');
   const [step, setStep] = useState(0);
 
+  // ── Store name availability check ───────────────────
+  const [isNameTaken, setIsNameTaken] = useState(false);
+  const [isNameChecking, setIsNameChecking] = useState(false);
+
+  useEffect(() => {
+    if (!name || name.trim().length < 3) {
+      setIsNameTaken(false);
+      setIsNameChecking(false);
+      return;
+    }
+
+    setIsNameChecking(true);
+    const timer = setTimeout(async () => {
+      if (!isSupabaseConfigured) {
+        setIsNameChecking(false);
+        return;
+      }
+      const { data } = await supabase
+        .from('stores')
+        .select('name')
+        .eq('name', name.trim())
+        .limit(1);
+
+      setIsNameTaken(data && data.length > 0);
+      setIsNameChecking(false);
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [name]);
+
   const CATEGORIES = [
     { value: 'smartphones', label: 'Smartphones', icon: '📱' },
     { value: 'informatique', label: 'Informatique', icon: '💻' },
@@ -351,10 +382,29 @@ function StoreSetup() {
   const isWhatsappValid = /^0[0-9]{9}$/.test(whatsapp.replace(/\s/g, ''));
   const showWhatsappError = whatsapp.length > 0 && !isWhatsappValid;
 
-  const handleCreate = () => {
-    if (name && isWhatsappValid && category) {
+  const handleCreate = async () => {
+    if (name && isWhatsappValid && category && !isNameTaken) {
       const phone = whatsapp.replace(/\D/g, '');
-      setVendorStore(name, phone, whatsapp, category);
+
+      // Try inserting into Supabase to catch duplicate key (23505)
+      if (isSupabaseConfigured) {
+        const { error } = await supabase
+          .from('stores')
+          .insert([{ name: name.trim(), phone, whatsapp, category }]);
+
+        if (error) {
+          if (error.code === '23505') {
+            setIsNameTaken(true);
+            toast({ title: 'Erreur', description: 'Ce nom de boutique existe déjà.', variant: 'destructive' });
+            setStep(0); // Go back to name step
+            return;
+          }
+          // Other errors — still proceed locally
+          console.warn('Store insert error (non-duplicate):', error.message);
+        }
+      }
+
+      setVendorStore(name.trim(), phone, whatsapp, category);
       setIsStoreCreated(true);
       setView('vendor-dashboard');
       toast({ title: 'Boutique créée !', description: `${name} est maintenant en ligne` });
@@ -401,12 +451,37 @@ function StoreSetup() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Ma Boutique CI"
-                className="w-full h-14 px-4 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
+                className={`w-full h-14 px-4 rounded-xl border text-base focus:outline-none focus:ring-2 transition-all ${
+                  isNameTaken
+                    ? 'border-red-400 focus:ring-red-500/30 focus:border-red-500'
+                    : name.trim().length >= 3 && !isNameChecking
+                      ? 'border-emerald-400 focus:ring-emerald-500/30 focus:border-emerald-500'
+                      : 'border-gray-200 focus:ring-orange-500/30 focus:border-orange-500'
+                }`}
               />
+              {/* Availability feedback */}
+              {isNameChecking && (
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <Loader2 className="w-3.5 h-3.5 text-gray-400 animate-spin" />
+                  <span className="text-[11px] text-gray-400">Vérification...</span>
+                </div>
+              )}
+              {!isNameChecking && isNameTaken && (
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <XCircle className="w-3.5 h-3.5 text-red-500" />
+                  <span className="text-[11px] text-red-500 font-medium">Ce nom de boutique est déjà utilisé.</span>
+                </div>
+              )}
+              {!isNameChecking && !isNameTaken && name.trim().length >= 3 && (
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="text-[11px] text-emerald-600 font-medium">Nom disponible</span>
+                </div>
+              )}
             </div>
             <Button
-              onClick={() => name.trim() && setStep(1)}
-              disabled={!name.trim()}
+              onClick={() => name.trim() && !isNameTaken && setStep(1)}
+              disabled={!name.trim() || isNameTaken || isNameChecking}
               className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50"
             >
               Suivant
