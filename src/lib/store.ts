@@ -47,6 +47,7 @@ interface AppState {
   vendorStoreName: string;
   vendorPhone: string;
   vendorWhatsapp: string;
+  vendorCategory: string;
   vendorProducts: Product[];
   vendorOrders: Order[];
   vendorPendingCount: number;
@@ -84,7 +85,7 @@ interface AppState {
   setEscrowStatus: (status: EscrowStatus) => void;
   setLastOrderId: (id: string | null) => void;
   resetCheckout: () => void;
-  setVendorStore: (name: string, phone: string, whatsapp: string) => void;
+  setVendorStore: (name: string, phone: string, whatsapp: string, category: string) => void;
   addVendorProduct: (product: Product) => void;
   deleteVendorProduct: (productId: string) => void;
   toggleProductStock: (productId: string) => void;
@@ -129,6 +130,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   vendorStoreName: '',
   vendorPhone: '',
   vendorWhatsapp: '',
+  vendorCategory: '',
   vendorProducts: [...PRODUCTS.slice(0, 5)], // Vendor starts with 5 products
   vendorOrders: [],
   vendorPendingCount: 0,
@@ -200,8 +202,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   resetCheckout: () => set({ paymentStatus: 'idle', escrowStatus: 'idle', lastOrderId: null }),
 
-  setVendorStore: (name, phone, whatsapp) =>
-    set({ vendorStoreName: name, vendorPhone: phone, vendorWhatsapp: whatsapp, isStoreCreated: true }),
+  setVendorStore: (name, phone, whatsapp, category) =>
+    set({ vendorStoreName: name, vendorPhone: phone, vendorWhatsapp: whatsapp, vendorCategory: category, isStoreCreated: true }),
 
   addVendorProduct: (product) =>
     set((state) => ({ vendorProducts: [product, ...state.vendorProducts] })),

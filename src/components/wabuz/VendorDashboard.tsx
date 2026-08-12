@@ -330,16 +330,26 @@ function OrderStatusBadge({ status }: { status: string }) {
 }
 
 function StoreSetup() {
-  const { setVendorStore, setIsStoreCreated } = useAppStore();
+  const { setVendorStore, setIsStoreCreated, setView } = useAppStore();
   const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [category, setCategory] = useState('');
   const [step, setStep] = useState(0);
 
+  const CATEGORIES = [
+    { value: 'smartphones', label: 'Smartphones', icon: '📱' },
+    { value: 'mode', label: 'Mode', icon: '👗' },
+    { value: 'beaute', label: 'Beauté', icon: '💄' },
+    { value: 'maison', label: 'Maison', icon: '🏠' },
+    { value: 'autre', label: 'Autre', icon: '📦' },
+  ];
+
   const handleCreate = () => {
-    if (name && phone) {
-      setVendorStore(name, phone, whatsapp || phone);
+    if (name && whatsapp && category) {
+      const phone = whatsapp.replace(/\D/g, '');
+      setVendorStore(name, phone, whatsapp, category);
       setIsStoreCreated(true);
+      setView('vendor-dashboard');
       toast({ title: 'Boutique créée !', description: `${name} est maintenant en ligne` });
     }
   };
@@ -364,72 +374,94 @@ function StoreSetup() {
         ))}
       </div>
 
+      {/* Step 0: Welcome + Store Name */}
       {step === 0 && (
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-orange-500/20">
-            <Store className="w-10 h-10 text-white" />
+        <>
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-orange-500 to-amber-400 flex items-center justify-center mx-auto mb-4 shadow-xl shadow-orange-500/20">
+              <Store className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Créez votre boutique</h2>
+            <p className="text-sm text-gray-500">En 5 minutes, vos produits sont en ligne !</p>
           </div>
-          <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Créez votre boutique</h2>
-          <p className="text-sm text-gray-500">En 5 minutes, vos produits sont en ligne !</p>
-        </div>
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+                Nom de la boutique <span className="text-red-400">*</span>
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex: Ma Boutique CI"
+                className="w-full h-14 px-4 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
+              />
+            </div>
+            <Button
+              onClick={() => name.trim() && setStep(1)}
+              disabled={!name.trim()}
+              className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50"
+            >
+              Suivant
+            </Button>
+          </div>
+        </>
       )}
 
-      {step === 0 && (
-        <div className="space-y-4">
-          <div>
-            <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Nom de la boutique <span className="text-red-400">*</span></label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ex: Ma Boutique CI"
-              className="w-full h-12 px-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
-            />
-          </div>
-          <Button
-            onClick={() => name && setStep(1)}
-            disabled={!name}
-            className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50"
-          >
-            Suivant
-          </Button>
-        </div>
-      )}
-
+      {/* Step 1: WhatsApp + Category */}
       {step === 1 && (
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Numéro de téléphone <span className="text-red-400">*</span></label>
-            <input
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+225 07 XX XX XX"
-              className="w-full h-12 px-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
-            />
+            <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+              Numéro WhatsApp <span className="text-red-400">*</span>
+            </label>
+            <div className="relative">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">+225</span>
+              <input
+                type="tel"
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value)}
+                placeholder="07 XX XX XX XX"
+                className="w-full h-14 pl-14 pr-4 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 mt-1">Vos clients vous contacteront via ce numéro</p>
           </div>
+
           <div>
-            <label className="text-sm font-semibold text-gray-700 mb-1.5 block">Lien WhatsApp (optionnel)</label>
-            <input
-              type="text"
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              placeholder="22507XXXXXXXX"
-              className="w-full h-12 px-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
-            />
+            <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+              Catégorie principale <span className="text-red-400">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.value}
+                  onClick={() => setCategory(cat.value)}
+                  className={`flex items-center gap-2.5 h-12 px-4 rounded-xl border text-sm font-medium transition-all ${
+                    category === cat.value
+                      ? 'border-orange-500 bg-orange-50 text-orange-700 ring-1 ring-orange-500/30'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <span className="text-lg">{cat.icon}</span>
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-3">
+
+          <div className="flex gap-3 pt-2">
             <Button
               onClick={() => setStep(0)}
               variant="outline"
-              className="flex-1 h-12 rounded-xl font-semibold"
+              className="flex-1 h-14 rounded-xl font-semibold text-base"
             >
               Retour
             </Button>
             <Button
-              onClick={() => phone && setStep(2)}
-              disabled={!phone}
-              className="flex-1 h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50"
+              onClick={() => whatsapp.trim() && category && setStep(2)}
+              disabled={!whatsapp.trim() || !category}
+              className="flex-1 h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50"
             >
               Suivant
             </Button>
@@ -437,6 +469,7 @@ function StoreSetup() {
         </div>
       )}
 
+      {/* Step 2: Preview & Confirm */}
       {step === 2 && (
         <div className="space-y-4">
           <div className="bg-gray-50 rounded-2xl p-5 text-center">
@@ -445,25 +478,29 @@ function StoreSetup() {
               {name.charAt(0).toUpperCase()}
             </div>
             <h3 className="text-lg font-bold text-gray-900">{name}</h3>
-            <p className="text-sm text-gray-500 mt-0.5">{phone}</p>
-            {whatsapp && (
-              <div className="flex items-center justify-center gap-1.5 mt-2">
-                <MessageCircle className="w-3.5 h-3.5 text-green-500" />
-                <span className="text-xs text-green-600 font-medium">WhatsApp connecté</span>
-              </div>
-            )}
+            <p className="text-sm text-gray-500 mt-0.5">+225 {whatsapp}</p>
+            <div className="flex items-center justify-center gap-1.5 mt-2">
+              <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+              <span className="text-xs text-green-600 font-medium">WhatsApp connecté</span>
+            </div>
+            <div className="mt-2">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-bold">
+                {CATEGORIES.find((c) => c.value === category)?.icon}{' '}
+                {CATEGORIES.find((c) => c.value === category)?.label}
+              </span>
+            </div>
           </div>
           <div className="flex gap-3">
             <Button
               onClick={() => setStep(1)}
               variant="outline"
-              className="flex-1 h-12 rounded-xl font-semibold"
+              className="flex-1 h-14 rounded-xl font-semibold text-base"
             >
               Retour
             </Button>
             <Button
               onClick={handleCreate}
-              className="flex-1 h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30"
+              className="flex-1 h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30"
             >
               Créer ma boutique
             </Button>

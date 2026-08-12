@@ -16,13 +16,15 @@ import { VendorStore } from '@/components/wabuz/VendorStore';
 import { useEffect } from 'react';
 
 export default function Home() {
-  const { view, mode, loadClientFromStorage } = useAppStore();
-  void mode; // mode used by BottomNav implicitly
+  const { view, mode, isStoreCreated, loadClientFromStorage } = useAppStore();
 
   // Load client profile from localStorage on mount (auto-login)
   useEffect(() => {
     loadClientFromStorage();
   }, [loadClientFromStorage]);
+
+  // Vendor without a store: full-screen StoreSetup, no BottomNav
+  const isVendorWithoutStore = mode === 'vendor' && !isStoreCreated;
 
   const renderView = () => {
     switch (view) {
@@ -71,7 +73,8 @@ export default function Home() {
           {renderView()}
         </div>
       </main>
-      <BottomNav />
+      {/* Show BottomNav only when client mode OR vendor store is already created */}
+      {!isVendorWithoutStore && <BottomNav />}
     </div>
   );
 }
