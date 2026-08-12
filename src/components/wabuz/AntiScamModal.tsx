@@ -1,47 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Shield, AlertTriangle, X } from 'lucide-react';
+import { Shield, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface AntiScamModalProps {
-  /** Force show regardless of localStorage (e.g. on first checkout) */
-  forceShow?: boolean;
   /** Callback when user dismisses the modal */
-  onDismiss?: () => void;
+  onClose: () => void;
 }
 
-const STORAGE_KEY = 'wabuz_seen_warning';
-
-export function AntiScamModal({ forceShow = false, onDismiss }: AntiScamModalProps) {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    // Check if user has already seen the warning
-    const seen = localStorage.getItem(STORAGE_KEY);
-    if (forceShow || !seen) {
-      setVisible(true);
-    }
-  }, [forceShow]);
-
-  const handleDismiss = () => {
-    // Mark as seen so it never shows again on this device
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(STORAGE_KEY, 'true');
-    }
-    setVisible(false);
-    onDismiss?.();
-  };
-
-  if (!visible) return null;
-
+export function AntiScamModal({ onClose }: AntiScamModalProps) {
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Overlay */}
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={handleDismiss}
+        onClick={onClose}
       />
 
       {/* Modal */}
@@ -97,7 +70,7 @@ export function AntiScamModal({ forceShow = false, onDismiss }: AntiScamModalPro
 
           {/* Dismiss button */}
           <Button
-            onClick={handleDismiss}
+            onClick={onClose}
             className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30"
           >
             J&apos;ai compris
@@ -106,16 +79,4 @@ export function AntiScamModal({ forceShow = false, onDismiss }: AntiScamModalPro
       </div>
     </div>
   );
-}
-
-// ── Helper: check if warning has been seen ──────────────────────
-export function hasSeenAntiScamWarning(): boolean {
-  if (typeof window === 'undefined') return true;
-  return localStorage.getItem(STORAGE_KEY) === 'true';
-}
-
-// ── Helper: mark warning as seen ─────────────────────────────────
-export function markAntiScamWarningSeen(): void {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(STORAGE_KEY, 'true');
 }

@@ -158,20 +158,18 @@ export function CheckoutFlow() {
   const [showEscrowDetail, setShowEscrowDetail] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
 
-  // ── Anti-Scam Modal State ──────────────────────────────
-  const [showAntiScam, setShowAntiScam] = useState(false);
+  // ── Anti-Scam Warning State ────────────────────────────
+  const [showWarning, setShowWarning] = useState(false);
 
-  // Show anti-scam modal when payment succeeds (once per device)
   useEffect(() => {
-    if (step === 'success' && typeof window !== 'undefined') {
-      const seen = localStorage.getItem('wabuz_seen_warning');
-      if (!seen) {
-        // Small delay so the success screen renders first
-        const timer = setTimeout(() => setShowAntiScam(true), 800);
-        return () => clearTimeout(timer);
+    if (paymentStatus === 'success') {
+      const hasSeenWarning = localStorage.getItem('wabuz_seen_warning');
+      if (!hasSeenWarning) {
+        setShowWarning(true);
+        localStorage.setItem('wabuz_seen_warning', 'true');
       }
     }
-  }, [step]);
+  }, [paymentStatus]);
 
   // ── OTP / Phone Verification State ──────────────────────
   const [otpCode, setOtpCode] = useState<string | null>(null);
@@ -552,10 +550,7 @@ export function CheckoutFlow() {
         </div>
 
         {/* Anti-Scam Modal — shown once per device after first payment success */}
-        <AntiScamModal
-          forceShow={showAntiScam}
-          onDismiss={() => setShowAntiScam(false)}
-        />
+        {showWarning && <AntiScamModal onClose={() => setShowWarning(false)} />}
       </div>
     );
   }
