@@ -8,6 +8,7 @@ import {
   Lock,
   Unlock,
   MessageCircle,
+  Phone,
   Loader2,
   AlertCircle,
   RefreshCw,
@@ -308,6 +309,17 @@ export default function ClientOrders() {
           >
             <MessageCircle size={16} className="text-green-600" />
             Contacter
+          </button>
+
+          <button
+            onClick={() => {
+              const phone = order.client_phone;
+              window.location.href = `tel:+225${phone.replace(/\D/g, '')}`;
+            }}
+            className="flex items-center justify-center gap-2 py-2.5 px-4 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Phone size={16} className="text-blue-500" />
+            Appeler
           </button>
 
           {canConfirm && (

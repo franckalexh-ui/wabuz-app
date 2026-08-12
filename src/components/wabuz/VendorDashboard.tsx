@@ -420,7 +420,7 @@ function StoreSetup() {
         <div className="space-y-4">
           <div>
             <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
-              Numéro WhatsApp <span className="text-red-400">*</span>
+              Numéro de téléphone <span className="text-gray-400 font-normal">(Joignable sur WhatsApp et Appels)</span> <span className="text-red-400">*</span>
             </label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">+225</span>
