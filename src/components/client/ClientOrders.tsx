@@ -14,8 +14,10 @@ import {
   RefreshCw,
   CreditCard,
   Clock,
+  ShoppingBag,
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
+import { useAppStore } from '@/lib/store';
 import { toast } from '@/hooks/use-toast';
 import { AntiScamModal } from '@/components/wabuz/AntiScamModal';
 
@@ -61,6 +63,42 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string; bgColor
 
 // ── Component ────────────────────────────────────────────────
 export default function ClientOrders() {
+  const { clientPhone: zustandPhone, setView } = useAppStore();
+
+  // ── Resolve client phone: Zustand store OR localStorage fallback ──
+  const [resolvedPhone, setResolvedPhone] = useState<string>(() => {
+    if (zustandPhone) return zustandPhone;
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('wabuz_client');
+        if (stored) {
+          const { phone } = JSON.parse(stored);
+          if (phone) return phone;
+        }
+      } catch { /* ignore */ }
+    }
+    return '';
+  });
+
+  // Keep in sync if Zustand hydrates later
+  useEffect(() => {
+    if (zustandPhone) setResolvedPhone(zustandPhone);
+  }, [zustandPhone]);
+
+  // Hydration guard: read localStorage after mount if still empty
+  useEffect(() => {
+    if (!resolvedPhone && typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('wabuz_client');
+        if (stored) {
+          const { phone } = JSON.parse(stored);
+          if (phone) setResolvedPhone(phone);
+        }
+      } catch { /* ignore */ }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const [orders, setOrders] = useState<SupabaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -81,10 +119,17 @@ export default function ClientOrders() {
     }
   };
 
-  // ── Fetch orders from Supabase ─────────────────────────────
+  // ── Fetch orders from Supabase, filtered by client phone ────
   const fetchOrders = useCallback(async () => {
     setLoading(true);
     setError(null);
+
+    // No client phone — user hasn't purchased yet, don't fetch
+    if (!resolvedPhone) {
+      setOrders([]);
+      setLoading(false);
+      return;
+    }
 
     if (!isSupabaseConfigured) {
       setError('Supabase non configuré');
@@ -92,9 +137,11 @@ export default function ClientOrders() {
       return;
     }
 
+    // Fetch only this client's orders, filtered by phone number (privacy)
     const { data, error: fetchError } = await supabase
       .from('orders')
       .select('*, products(name, image_url, price)')
+      .eq('client_phone', resolvedPhone)
       .order('created_at', { ascending: false });
 
     if (fetchError) {
@@ -104,7 +151,7 @@ export default function ClientOrders() {
       setOrders(data as SupabaseOrder[]);
     }
     setLoading(false);
-  }, []);
+  }, [resolvedPhone]);
 
   useEffect(() => {
     fetchOrders();
@@ -401,8 +448,40 @@ export default function ClientOrders() {
           </div>
         )}
 
+        {/* Not logged in — friendly welcome */}
+        {!loading && !error && !resolvedPhone && (
+          <div className="text-center py-20">
+            <ShoppingBag size={48} className="mx-auto text-orange-300 mb-4" />
+            <p className="text-gray-700 font-semibold">Vous n'avez pas encore de commandes</p>
+            <p className="text-gray-400 text-sm mt-1 mb-5">Découvrez nos produits sur la page d'accueil !</p>
+            <button
+              onClick={() => setView('home')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white text-sm font-semibold rounded-full hover:bg-orange-600 transition-colors"
+            >
+              <ShoppingBag size={16} />
+              Découvrir les produits
+            </button>
+          </div>
+        )}
+
+        {/* Logged in but 0 orders — clean empty state */}
+        {!loading && !error && resolvedPhone && orders.length === 0 && (
+          <div className="text-center py-20">
+            <Package size={48} className="mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-500 font-medium">Aucune commande en cours</p>
+            <p className="text-gray-400 text-sm mt-1 mb-5">Vos achats apparaîtront ici</p>
+            <button
+              onClick={() => setView('home')}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-500 text-white text-sm font-semibold rounded-full hover:bg-orange-600 transition-colors"
+            >
+              <ShoppingBag size={16} />
+              Commander
+            </button>
+          </div>
+        )}
+
         {/* Orders List */}
-        {!loading && !error && (
+        {!loading && !error && resolvedPhone && orders.length > 0 && (
           <>
             {activeTab === 'active' ? (
               activeOrders.length > 0 ? (
