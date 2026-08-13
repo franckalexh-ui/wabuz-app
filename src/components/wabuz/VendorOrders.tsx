@@ -20,6 +20,7 @@ import {
   Loader2,
   RefreshCw,
   Filter,
+  Store,
 } from 'lucide-react';
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
@@ -91,7 +92,7 @@ const FILTERS: { key: OrderFilter; label: string }[] = [
 
 // ── Component ────────────────────────────────────────────────
 export function VendorOrders() {
-  const { setVendorPendingCount, vendorStoreId } = useAppStore();
+  const { setVendorPendingCount, vendorStoreId, setView, setIsStoreCreated } = useAppStore();
   const [orders, setOrders] = useState<SupabaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -103,8 +104,9 @@ export function VendorOrders() {
     setLoading(true);
     setError(null);
 
+    // No store_id — don't show error, just show empty state
     if (!isSupabaseConfigured || !vendorStoreId) {
-      setError('Supabase non configuré ou boutique non créée');
+      setOrders([]);
       setLoading(false);
       return;
     }
@@ -496,7 +498,24 @@ export function VendorOrders() {
             );
           })}
 
-          {filteredOrders.length === 0 && (
+          {filteredOrders.length === 0 && !vendorStoreId && (
+            <div className="text-center py-16">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
+                <Store className="w-8 h-8 text-amber-500" />
+              </div>
+              <h3 className="text-base font-semibold text-gray-700 mb-1">Pas encore de boutique</h3>
+              <p className="text-xs text-gray-400 mb-4">Créez votre boutique pour commencer à recevoir des commandes</p>
+              <button
+                onClick={() => { setIsStoreCreated(false); setView('vendor-dashboard'); }}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-orange-500 text-white text-sm font-semibold rounded-full hover:bg-orange-600 transition-colors"
+              >
+                <Store className="w-4 h-4" />
+                Créer ma boutique
+              </button>
+            </div>
+          )}
+
+          {filteredOrders.length === 0 && vendorStoreId && (
             <div className="text-center py-16">
               <div className="text-5xl mb-4">📦</div>
               <h3 className="text-base font-semibold text-gray-700 mb-1">Aucune commande</h3>

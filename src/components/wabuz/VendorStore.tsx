@@ -47,8 +47,9 @@ export function VendorStore() {
 
   const fetchProducts = useCallback(async () => {
     setProductsLoading(true);
+    // No store_id — can't fetch, show empty
     if (!isSupabaseConfigured || !vendorStoreId) {
-      setStoreProducts(vendorProducts);
+      setStoreProducts([]);
       setProductsLoading(false);
       return;
     }
@@ -57,7 +58,7 @@ export function VendorStore() {
       .select('*')
       .eq('store_id', vendorStoreId)
       .order('created_at', { ascending: false });
-    if (data && data.length > 0) {
+    if (data) {
       const mapped = data.map((p: any) => ({
         id: String(p.id),
         name: p.name,
@@ -75,15 +76,15 @@ export function VendorStore() {
       }));
       setStoreProducts(mapped);
     } else {
-      setStoreProducts(vendorProducts);
+      setStoreProducts([]);
     }
     setProductsLoading(false);
-  }, [vendorStoreId, vendorProducts, vendorStoreName, vendorPhone, vendorWhatsapp]);
+  }, [vendorStoreId, vendorStoreName, vendorPhone, vendorWhatsapp]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
-  // Use Supabase products if available, otherwise local
-  const displayProducts = storeProducts.length > 0 ? storeProducts : vendorProducts;
+  // Always use Supabase-fetched products — no dummy fallback
+  const displayProducts = storeProducts;
 
   const handleDelete = (productId: string, productName: string) => {
     deleteVendorProduct(productId);
@@ -276,6 +277,14 @@ export function VendorStore() {
                 </div>
               );
             })}
+          </div>
+        ) : !vendorStoreId ? (
+          <div className="bg-amber-50 rounded-2xl py-10 text-center border border-amber-100">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-3">
+              <Store className="w-7 h-7 text-amber-500" />
+            </div>
+            <p className="text-sm font-semibold text-amber-800">Boutique non synchronisée</p>
+            <p className="text-xs text-amber-600 mt-1">Votre boutique n'est pas encore connectée au serveur.</p>
           </div>
         ) : (
           <div className="bg-gray-50 rounded-2xl py-10 text-center">

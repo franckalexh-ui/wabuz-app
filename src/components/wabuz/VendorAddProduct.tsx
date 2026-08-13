@@ -304,6 +304,14 @@ export function VendorAddProduct() {
         <span className="text-xs text-gray-400">Remplissez les informations ci-dessous</span>
       </div>
 
+      {/* ── No store_id warning ──────────────────────────────── */}
+      {!vendorStoreId && (
+        <div className="mx-4 mt-2 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-center">
+          <p className="text-sm font-semibold text-amber-800">Boutique non synchronisée</p>
+          <p className="text-xs text-amber-600 mt-0.5">Vous devez d'abord créer votre boutique pour ajouter des produits.</p>
+        </div>
+      )}
+
       <div className="px-4 space-y-5">
         {/* ── Photo Upload Zone ────────────────────────────────── */}
         <div>
@@ -484,7 +492,7 @@ export function VendorAddProduct() {
       <div className="px-4 mt-6">
         <Button
           onClick={handleSubmit}
-          disabled={!name || !price || !category || !description || (images.length === 0 && pendingFiles.length === 0) || submitting}
+          disabled={!vendorStoreId || !name || !price || !category || !description || (images.length === 0 && pendingFiles.length === 0) || submitting}
           className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50 transition-all active:scale-[0.98]"
         >
           {submitting ? (

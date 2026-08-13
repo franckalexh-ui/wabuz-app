@@ -133,7 +133,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   vendorPhone: '',
   vendorWhatsapp: '',
   vendorCategory: '',
-  vendorProducts: [...PRODUCTS.slice(0, 5)], // Vendor starts with 5 products
+  vendorProducts: [], // No dummy products — only real products from Supabase
   vendorOrders: [],
   vendorPendingCount: 0,
   isStoreCreated: false,

@@ -50,7 +50,7 @@ interface SupabaseOrder {
 }
 
 export function VendorDashboard() {
-  const { isStoreCreated, vendorStoreName, vendorStoreId, setView, vendorProducts, newOrderCount, clearNewOrderCount, setVendorPendingCount } = useAppStore();
+  const { isStoreCreated, vendorStoreName, vendorStoreId, setView, vendorProducts, newOrderCount, clearNewOrderCount, setVendorPendingCount, setIsStoreCreated } = useAppStore();
 
   // ── Real orders from Supabase ────────────────────────────
   const [orders, setOrders] = useState<SupabaseOrder[]>([]);
@@ -58,7 +58,12 @@ export function VendorDashboard() {
 
   const fetchOrders = useCallback(async () => {
     setOrdersLoading(true);
-    if (!isSupabaseConfigured || !vendorStoreId) { setOrdersLoading(false); return; }
+    // No store_id — can't fetch orders, but don't show error
+    if (!isSupabaseConfigured || !vendorStoreId) {
+      setOrders([]);
+      setOrdersLoading(false);
+      return;
+    }
     const { data } = await supabase
       .from('orders')
       .select('*, products(name, image_url, price)')
@@ -82,7 +87,8 @@ export function VendorDashboard() {
     clearNewOrderCount();
   }, [clearNewOrderCount]);
 
-  if (!isStoreCreated) {
+  // No store at all — show setup wizard
+  if (!isStoreCreated && !vendorStoreId) {
     return <StoreSetup />;
   }
 
@@ -119,6 +125,26 @@ export function VendorDashboard() {
 
   return (
     <div className="pb-4">
+      {/* ── Missing store_id banner ──────────────────────────── */}
+      {!vendorStoreId && (
+        <div className="mx-4 mt-4 mb-4 rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-amber-800">Boutique non synchronisée</p>
+            <p className="text-xs text-amber-600 mt-0.5">Votre boutique n'est pas encore connectée au serveur. Recréez-la pour activer la synchronisation.</p>
+            <Button
+              onClick={() => {
+                setIsStoreCreated(false);
+                setView('vendor-dashboard');
+              }}
+              size="sm"
+              className="mt-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold"
+            >
+              Créer ma boutique
+            </Button>
+          </div>
+        </div>
+      )}
       {/* ── Gradient Header with Store Name + Revenue ─────────── */}
       <div className="mx-4 mt-4 mb-5 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-400 p-5 text-white relative overflow-hidden">
         <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full" />
@@ -393,9 +419,22 @@ function StoreSetup() {
 
         if (error) {
           if (error.code === '23505') {
-            setIsNameTaken(true);
-            toast({ title: 'Erreur', description: 'Ce nom de boutique existe déjà.', variant: 'destructive' });
-            setStep(0); // Go back to name step
+            // Duplicate key — could be name OR phone
+            toast({
+              title: 'Doublon détecté',
+              description: 'Ce numéro de téléphone ou nom de boutique est déjà utilisé.',
+              variant: 'destructive',
+            });
+            // Check if it's the name that's taken
+            const { data: nameCheck } = await supabase
+              .from('stores')
+              .select('name')
+              .eq('name', name.trim())
+              .limit(1);
+            if (nameCheck && nameCheck.length > 0) {
+              setIsNameTaken(true);
+              setStep(0);
+            }
             return;
           }
           // Other errors — still proceed locally
