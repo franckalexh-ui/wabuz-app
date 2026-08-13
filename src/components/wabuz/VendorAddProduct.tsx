@@ -137,6 +137,16 @@ export function VendorAddProduct() {
       return;
     }
 
+    // Require at least one image (uploaded file or URL)
+    if (images.length === 0 && pendingFiles.length === 0) {
+      toast({
+        title: 'Photo requise',
+        description: 'Ajoutez au moins une photo du produit',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSubmitting(true);
     setUploadingImage(pendingFiles.length > 0);
 
@@ -220,6 +230,8 @@ export function VendorAddProduct() {
         <div className="w-full space-y-3">
           <Button
             onClick={() => {
+              // Revoke any remaining blob URLs to free memory
+              pendingPreviews.forEach((url) => URL.revokeObjectURL(url));
               setShowSuccess(false); setName(''); setPrice('');
               setCategory(''); setDescription(''); setImages([]);
               setPendingFiles([]); setPendingPreviews([]);
@@ -288,66 +300,86 @@ export function VendorAddProduct() {
         {/* ── Photo Upload Zone ────────────────────────────────── */}
         <div>
           <label className="text-sm font-semibold text-gray-700 mb-2 block">
-            Photos du produit
+            Photos du produit <span className="text-red-400">*</span>
           </label>
 
-          {/* Image thumbnails: uploaded URLs + pending local previews */}
-          <div className="flex gap-2 flex-wrap mb-3">
-            {/* Existing URL images */}
-            {images.map((img, i) => (
-              <div key={`url-${i}`} className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 group">
-                <img src={img} alt={`Product ${i + 1}`} className="w-full h-full object-cover" />
-                <button
-                  onClick={() => handleRemoveImage(i)}
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X className="w-3 h-3 text-white" />
-                </button>
-              </div>
-            ))}
-
-            {/* Pending file previews (local blob URLs) */}
-            {pendingPreviews.map((preview, i) => (
-              <div key={`pending-${i}`} className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 group ring-2 ring-orange-300 ring-offset-1">
-                <img src={preview} alt={`Upload ${i + 1}`} className="w-full h-full object-cover" />
-                <div className="absolute bottom-0 left-0 right-0 bg-orange-500/80 text-[8px] text-white font-bold text-center py-0.5">
-                  Nouveau
-                </div>
-                <button
-                  onClick={() => handleRemovePendingFile(i)}
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <X className="w-3 h-3 text-white" />
-                </button>
-              </div>
-            ))}
-
-            {/* Add Photo Button — triggers hidden file input */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center hover:border-orange-300 hover:bg-orange-50/50 transition-colors"
-            >
-              <Camera className="w-5 h-5 text-gray-300" />
-              <span className="text-[9px] text-gray-400 mt-1">Photo</span>
-            </button>
-          </div>
-
-          {/* Hidden file input */}
+          {/* Hidden file input — accept="image/*" triggers native Camera/Gallery on mobile */}
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            multiple
             onChange={handleFileSelect}
             className="hidden"
           />
 
+          {/* When NO images yet: show large prominent upload zone */}
+          {totalImageCount === 0 ? (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              type="button"
+              className="w-full py-10 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50/50 flex flex-col items-center justify-center gap-2 hover:border-orange-400 hover:bg-orange-50/40 active:scale-[0.98] transition-all"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-orange-100 flex items-center justify-center">
+                <Camera className="w-7 h-7 text-orange-500" />
+              </div>
+              <span className="text-base font-semibold text-gray-700">Ajouter une photo</span>
+              <span className="text-xs text-gray-400">Prendre une photo ou choisir de la galerie</span>
+            </button>
+          ) : (
+            <>
+              {/* Image thumbnails: uploaded URLs + pending local previews */}
+              <div className="flex gap-2 flex-wrap mb-2">
+                {/* Existing URL images */}
+                {images.map((img, i) => (
+                  <div key={`url-${i}`} className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 group">
+                    <img src={img} alt={`Product ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => handleRemoveImage(i)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Pending file previews (local blob URLs) */}
+                {pendingPreviews.map((preview, i) => (
+                  <div key={`pending-${i}`} className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 group ring-2 ring-orange-300 ring-offset-1">
+                    <img src={preview} alt={`Upload ${i + 1}`} className="w-full h-full object-cover" />
+                    <div className="absolute bottom-0 left-0 right-0 bg-orange-500/80 text-[8px] text-white font-bold text-center py-0.5">
+                      Nouveau
+                    </div>
+                    <button
+                      onClick={() => handleRemovePendingFile(i)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Add More Photos — smaller button when images exist */}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  type="button"
+                  className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center hover:border-orange-300 hover:bg-orange-50/50 active:scale-95 transition-all"
+                >
+                  <ImagePlus className="w-5 h-5 text-gray-300" />
+                  <span className="text-[9px] text-gray-400 mt-0.5">Ajouter</span>
+                </button>
+              </div>
+            </>
+          )}
+
           {/* Upload instruction */}
-          <p className="text-[11px] text-gray-400">
-            Appuyez sur <span className="font-medium">📷 Photo</span> pour prendre une photo ou choisir une image. Les images seront téléchargées lors de la publication.
+          <p className="text-[11px] text-gray-400 mt-1">
+            {totalImageCount === 0
+              ? 'Appuyez pour prendre une photo ou choisir depuis la galerie'
+              : `${totalImageCount} photo(s) sélectionnée(s) — appuyez sur + pour en ajouter`
+            }
           </p>
 
-          {/* Suggested Images (still available as quick picks) */}
+          {/* Suggested Images (quick picks based on category) */}
           {suggestedImages.length > 0 && (
             <div className="mt-3">
               <p className="text-[11px] text-gray-400 mb-1.5">Images suggérées :</p>
@@ -444,7 +476,7 @@ export function VendorAddProduct() {
       <div className="px-4 mt-6">
         <Button
           onClick={handleSubmit}
-          disabled={!name || !price || !category || !description || submitting}
+          disabled={!name || !price || !category || !description || (images.length === 0 && pendingFiles.length === 0) || submitting}
           className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50 transition-all active:scale-[0.98]"
         >
           {submitting ? (
