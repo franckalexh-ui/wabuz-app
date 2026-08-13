@@ -92,7 +92,7 @@ const FILTERS: { key: OrderFilter; label: string }[] = [
 
 // ── Component ────────────────────────────────────────────────
 export function VendorOrders() {
-  const { setVendorPendingCount, vendorStoreId, setView, setIsStoreCreated } = useAppStore();
+  const { setVendorPendingCount, vendorStoreId, setView, setIsStoreCreated, setVendorStoreId } = useAppStore();
 
   // ── Resolve store_id: Zustand store OR localStorage fallback ──
   const [resolvedStoreId, setResolvedStoreId] = useState<string>(() => {
@@ -105,6 +105,22 @@ export function VendorOrders() {
   useEffect(() => {
     if (vendorStoreId) setResolvedStoreId(vendorStoreId);
   }, [vendorStoreId]);
+
+  // ── Hydration guard ─────────────────────────────────────
+  // After SSR hydration, window is available. If resolvedStoreId is still
+  // empty (SSR couldn't read localStorage), read it now and sync back
+  // to the Zustand store so all components see the store_id.
+  useEffect(() => {
+    if (!resolvedStoreId && typeof window !== 'undefined') {
+      const stored = localStorage.getItem('wabuz_vendor_store_id');
+      if (stored) {
+        setResolvedStoreId(stored);
+        setVendorStoreId(stored);
+        setIsStoreCreated(true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once after mount
 
   const [orders, setOrders] = useState<SupabaseOrder[]>([]);
   const [loading, setLoading] = useState(true);

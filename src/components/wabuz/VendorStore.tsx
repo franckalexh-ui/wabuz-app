@@ -37,6 +37,8 @@ export function VendorStore() {
     toggleProductStock,
     selectProduct,
     addVendorProduct,
+    setVendorStoreId,
+    setIsStoreCreated,
   } = useAppStore();
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -58,6 +60,22 @@ export function VendorStore() {
       setResolvedStoreId(vendorStoreId);
     }
   }, [vendorStoreId]);
+
+  // ── Hydration guard ─────────────────────────────────────
+  // After SSR hydration, window is available. If resolvedStoreId is still
+  // empty (SSR couldn't read localStorage), read it now and sync back
+  // to the Zustand store so all components see the store_id.
+  useEffect(() => {
+    if (!resolvedStoreId && typeof window !== 'undefined') {
+      const stored = localStorage.getItem('wabuz_vendor_store_id');
+      if (stored) {
+        setResolvedStoreId(stored);
+        setVendorStoreId(stored);
+        setIsStoreCreated(true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once after mount
 
   // ── Real products from Supabase ──────────────────────────
   const [storeProducts, setStoreProducts] = useState<typeof vendorProducts>([]);
