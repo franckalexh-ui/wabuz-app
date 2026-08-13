@@ -54,6 +54,7 @@ interface AppState {
   isStoreCreated: boolean;
   newOrderCount: number; // unread orders count
   vendorRevenue: number;
+  vendorStoreId: string; // real store_id from Supabase
 
   // Client Orders State
   clientOrders: ClientOrder[];
@@ -92,6 +93,7 @@ interface AppState {
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
   setVendorPendingCount: (count: number) => void;
   setIsStoreCreated: (created: boolean) => void;
+  setVendorStoreId: (id: string) => void;
   clearNewOrderCount: () => void;
   simulateNewOrder: () => void;
   getCartTotal: () => number;
@@ -137,6 +139,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isStoreCreated: false,
   newOrderCount: 1,
   vendorRevenue: 0,
+  vendorStoreId: '',
   clientOrders: [...MOCK_CLIENT_ORDERS],
   activeClientOrderFilter: 'all',
   confirmingReceiptId: null,
@@ -202,8 +205,12 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   resetCheckout: () => set({ paymentStatus: 'idle', escrowStatus: 'idle', lastOrderId: null }),
 
-  setVendorStore: (name, phone, whatsapp, category) =>
-    set({ vendorStoreName: name, vendorPhone: phone, vendorWhatsapp: whatsapp, vendorCategory: category, isStoreCreated: true }),
+  setVendorStore: (name, phone, whatsapp, category) => {
+    set({ vendorStoreName: name, vendorPhone: phone, vendorWhatsapp: whatsapp, vendorCategory: category, isStoreCreated: true });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('wabuz_vendor', JSON.stringify({ name, phone, whatsapp, category }));
+    }
+  },
 
   addVendorProduct: (product) =>
     set((state) => ({ vendorProducts: [product, ...state.vendorProducts] })),
@@ -230,6 +237,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   setVendorPendingCount: (count) => set({ vendorPendingCount: count }),
 
   setIsStoreCreated: (created) => set({ isStoreCreated: created }),
+
+  setVendorStoreId: (id) => {
+    set({ vendorStoreId: id });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('wabuz_vendor_store_id', id);
+    }
+  },
 
   clearNewOrderCount: () => set({ newOrderCount: 0 }),
 
@@ -389,6 +403,35 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
     } catch {
       // Invalid localStorage data — ignore
+    }
+
+    // Also load vendor store_id from localStorage if available
+    try {
+      const vendorStoreId = localStorage.getItem('wabuz_vendor_store_id');
+      if (vendorStoreId) {
+        set({ vendorStoreId, isStoreCreated: true });
+      }
+    } catch {
+      // ignore
+    }
+
+    // Also load vendor profile from localStorage
+    try {
+      const vendorData = localStorage.getItem('wabuz_vendor');
+      if (vendorData) {
+        const { name, phone, whatsapp, category } = JSON.parse(vendorData);
+        if (name) {
+          set({
+            vendorStoreName: name,
+            vendorPhone: phone || '',
+            vendorWhatsapp: whatsapp || '',
+            vendorCategory: category || '',
+            isStoreCreated: true,
+          });
+        }
+      }
+    } catch {
+      // ignore
     }
   },
 

@@ -2,7 +2,7 @@
 
 import { useAppStore } from '@/lib/store';
 import { formatPrice, CATEGORIES } from '@/lib/data';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import {
   Store,
   Phone,
@@ -15,9 +15,11 @@ import {
   CheckCircle2,
   X,
   Package,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
 
 // WhatsApp support link
@@ -29,13 +31,59 @@ export function VendorStore() {
     vendorPhone,
     vendorWhatsapp,
     vendorProducts,
+    vendorStoreId,
     setMode,
     deleteVendorProduct,
     toggleProductStock,
     selectProduct,
+    addVendorProduct,
   } = useAppStore();
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // ── Real products from Supabase ──────────────────────────
+  const [storeProducts, setStoreProducts] = useState<typeof vendorProducts>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+
+  const fetchProducts = useCallback(async () => {
+    setProductsLoading(true);
+    if (!isSupabaseConfigured || !vendorStoreId) {
+      setStoreProducts(vendorProducts);
+      setProductsLoading(false);
+      return;
+    }
+    const { data } = await supabase
+      .from('products')
+      .select('*')
+      .eq('store_id', vendorStoreId)
+      .order('created_at', { ascending: false });
+    if (data && data.length > 0) {
+      const mapped = data.map((p: any) => ({
+        id: String(p.id),
+        name: p.name,
+        price: p.price,
+        category: p.category || '',
+        description: p.description || '',
+        images: p.image_url ? [p.image_url] : [],
+        vendorId: vendorStoreId,
+        vendorName: vendorStoreName || 'Ma Boutique',
+        vendorRating: 5.0,
+        vendorPhone: vendorPhone || '',
+        vendorWhatsapp: vendorWhatsapp || '',
+        inStock: true,
+        createdAt: p.created_at || new Date().toISOString(),
+      }));
+      setStoreProducts(mapped);
+    } else {
+      setStoreProducts(vendorProducts);
+    }
+    setProductsLoading(false);
+  }, [vendorStoreId, vendorProducts, vendorStoreName, vendorPhone, vendorWhatsapp]);
+
+  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  // Use Supabase products if available, otherwise local
+  const displayProducts = storeProducts.length > 0 ? storeProducts : vendorProducts;
 
   const handleDelete = (productId: string, productName: string) => {
     deleteVendorProduct(productId);
@@ -127,14 +175,25 @@ export function VendorStore() {
           <h3 className="text-sm font-bold text-gray-900">
             Mes Produits
             <span className="text-xs font-normal text-gray-400 ml-1.5">
-              {vendorProducts.length} article{vendorProducts.length > 1 ? 's' : ''}
+              {displayProducts.length} article{displayProducts.length > 1 ? 's' : ''}
             </span>
           </h3>
+          <button
+            onClick={fetchProducts}
+            className="w-7 h-7 rounded-lg bg-gray-50 flex items-center justify-center hover:bg-gray-100 transition-colors"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-gray-400" />
+          </button>
         </div>
 
-        {vendorProducts.length > 0 ? (
+        {productsLoading ? (
+          <div className="py-12 flex flex-col items-center justify-center text-center">
+            <Loader2 className="w-6 h-6 text-orange-500 animate-spin mb-2" />
+            <p className="text-xs text-gray-400">Chargement des produits…</p>
+          </div>
+        ) : displayProducts.length > 0 ? (
           <div className="grid grid-cols-2 gap-3">
-            {vendorProducts.map((product) => {
+            {displayProducts.map((product) => {
               const catInfo = CATEGORIES.find((c) => c.id === product.category);
               const isDeleting = deleteConfirmId === product.id;
 

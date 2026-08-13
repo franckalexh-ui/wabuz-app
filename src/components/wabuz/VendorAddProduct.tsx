@@ -8,8 +8,6 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 
-const DEFAULT_STORE_ID = 'a1b2c3d4-1234-5678-9101-e11213141516';
-
 const SUGGESTED_IMAGES: Record<string, string[]> = {
   smartphones: [
     'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&h=600&fit=crop',
@@ -46,7 +44,7 @@ const SUGGESTED_IMAGES: Record<string, string[]> = {
 };
 
 export function VendorAddProduct() {
-  const { addVendorProduct, setView, vendorStoreName, vendorPhone, vendorWhatsapp } = useAppStore();
+  const { addVendorProduct, setView, vendorStoreName, vendorPhone, vendorWhatsapp, vendorStoreId } = useAppStore();
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('');
@@ -147,6 +145,16 @@ export function VendorAddProduct() {
       return;
     }
 
+    // Require a valid store_id — vendor must create a store first
+    if (!vendorStoreId) {
+      toast({
+        title: 'Boutique requise',
+        description: 'Veuillez d\'abord créer votre boutique avant d\'ajouter un produit',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setSubmitting(true);
     setUploadingImage(pendingFiles.length > 0);
 
@@ -178,7 +186,7 @@ export function VendorAddProduct() {
       .from('products')
       .insert([{
         name, description, price: priceNum, image_url: primaryImage,
-        category: categoryName, store_id: DEFAULT_STORE_ID,
+        category: categoryName, store_id: vendorStoreId,
       }])
       .select();
 

@@ -49,10 +49,8 @@ interface SupabaseOrder {
   } | null;
 }
 
-const STORE_ID = 'a1b2c3d4-1234-5678-9101-e11213141516';
-
 export function VendorDashboard() {
-  const { isStoreCreated, vendorStoreName, setView, vendorProducts, newOrderCount, clearNewOrderCount, setVendorPendingCount } = useAppStore();
+  const { isStoreCreated, vendorStoreName, vendorStoreId, setView, vendorProducts, newOrderCount, clearNewOrderCount, setVendorPendingCount } = useAppStore();
 
   // ── Real orders from Supabase ────────────────────────────
   const [orders, setOrders] = useState<SupabaseOrder[]>([]);
@@ -60,11 +58,11 @@ export function VendorDashboard() {
 
   const fetchOrders = useCallback(async () => {
     setOrdersLoading(true);
-    if (!isSupabaseConfigured) { setOrdersLoading(false); return; }
+    if (!isSupabaseConfigured || !vendorStoreId) { setOrdersLoading(false); return; }
     const { data } = await supabase
       .from('orders')
       .select('*, products(name, image_url, price)')
-      .eq('store_id', STORE_ID)
+      .eq('store_id', vendorStoreId)
       .order('created_at', { ascending: false });
     if (data) {
       const fetched = data as SupabaseOrder[];
@@ -72,7 +70,7 @@ export function VendorDashboard() {
       setVendorPendingCount(fetched.filter((o) => o.status === 'pending').length);
     }
     setOrdersLoading(false);
-  }, [setVendorPendingCount]);
+  }, [setVendorPendingCount, vendorStoreId]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
@@ -331,7 +329,7 @@ function OrderStatusBadge({ status }: { status: string }) {
 }
 
 function StoreSetup() {
-  const { setVendorStore, setIsStoreCreated, setView } = useAppStore();
+  const { setVendorStore, setIsStoreCreated, setVendorStoreId, setView } = useAppStore();
   const [name, setName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [category, setCategory] = useState('');
@@ -388,9 +386,10 @@ function StoreSetup() {
 
       // Try inserting into Supabase to catch duplicate key (23505)
       if (isSupabaseConfigured) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('stores')
-          .insert([{ name: name.trim(), phone, whatsapp, category }]);
+          .insert([{ name: name.trim(), phone, whatsapp, category }])
+          .select('id');
 
         if (error) {
           if (error.code === '23505') {
@@ -401,6 +400,13 @@ function StoreSetup() {
           }
           // Other errors — still proceed locally
           console.warn('Store insert error (non-duplicate):', error.message);
+        }
+
+        // Save the real store_id from Supabase
+        if (data && Array.isArray(data) && data.length > 0 && data[0].id) {
+          const storeId = String(data[0].id);
+          setVendorStoreId(storeId);
+          console.log('Store created with ID:', storeId);
         }
       }
 

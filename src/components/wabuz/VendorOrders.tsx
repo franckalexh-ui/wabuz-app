@@ -46,8 +46,6 @@ interface SupabaseOrder {
   } | null;
 }
 
-const STORE_ID = 'a1b2c3d4-1234-5678-9101-e11213141516';
-
 // ── Status Config ────────────────────────────────────────────
 const STATUS_CONFIG: Record<OrderStatus, {
   label: string;
@@ -93,7 +91,7 @@ const FILTERS: { key: OrderFilter; label: string }[] = [
 
 // ── Component ────────────────────────────────────────────────
 export function VendorOrders() {
-  const { setVendorPendingCount } = useAppStore();
+  const { setVendorPendingCount, vendorStoreId } = useAppStore();
   const [orders, setOrders] = useState<SupabaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,8 +103,8 @@ export function VendorOrders() {
     setLoading(true);
     setError(null);
 
-    if (!isSupabaseConfigured) {
-      setError('Supabase non configuré');
+    if (!isSupabaseConfigured || !vendorStoreId) {
+      setError('Supabase non configuré ou boutique non créée');
       setLoading(false);
       return;
     }
@@ -114,7 +112,7 @@ export function VendorOrders() {
     const { data, error: fetchError } = await supabase
       .from('orders')
       .select('*, products(name, image_url, price)')
-      .eq('store_id', STORE_ID)
+      .eq('store_id', vendorStoreId)
       .order('created_at', { ascending: false });
 
     if (fetchError) {
@@ -126,7 +124,7 @@ export function VendorOrders() {
       setVendorPendingCount(fetched.filter((o) => o.status === 'pending').length);
     }
     setLoading(false);
-  }, [setVendorPendingCount]);
+  }, [setVendorPendingCount, vendorStoreId]);
 
   useEffect(() => {
     fetchOrders();
