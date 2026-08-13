@@ -311,6 +311,29 @@ export function CheckoutFlow() {
             });
           }
         }
+
+        // ── Decrement stock_quantity for each product purchased ──
+        for (const item of cart) {
+          try {
+            // First read current stock
+            const { data: productData } = await supabase
+              .from('products')
+              .select('stock_quantity')
+              .eq('id', item.product.id)
+              .single();
+
+            if (productData && typeof productData.stock_quantity === 'number') {
+              const newStock = Math.max(0, productData.stock_quantity - item.quantity);
+              await supabase
+                .from('products')
+                .update({ stock_quantity: newStock })
+                .eq('id', item.product.id);
+            }
+          } catch (stockErr) {
+            console.error('Failed to decrement stock for', item.product.id, stockErr);
+            // Non-blocking: order is still placed even if stock update fails
+          }
+        }
       })();
 
       setTimeout(() => setStep('escrow-held'), 600);
@@ -323,6 +346,17 @@ export function CheckoutFlow() {
   }, [step, setPaymentStatus, setEscrowStatus, setLastOrderId, cart, deliveryZone, paymentMethod, addClientOrder]);
 
   const handleConfirmPayment = useCallback(() => {
+    // Block payment if any cart item is out of stock
+    const outOfStockItem = cart.find((item) => item.product.stockQuantity === 0);
+    if (outOfStockItem) {
+      toast({
+        title: 'Rupture de stock',
+        description: `${outOfStockItem.product.name} n'est plus disponible.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     // Save client profile to store + localStorage before processing
     if (phoneVerified && isProfileComplete && phoneNumber) {
       setClientProfile(
@@ -333,7 +367,7 @@ export function CheckoutFlow() {
     }
     setProcessingProgress(0);
     setStep('processing');
-  }, [phoneVerified, isProfileComplete, phoneNumber, clientFirstName, clientLastName, setClientProfile]);
+  }, [phoneVerified, isProfileComplete, phoneNumber, clientFirstName, clientLastName, setClientProfile, cart]);
 
   const handleContinueShopping = useCallback(() => {
     clearCart();

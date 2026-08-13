@@ -107,6 +107,7 @@ export function VendorStore() {
         vendorPhone: vendorPhone || '',
         vendorWhatsapp: vendorWhatsapp || '',
         inStock: true,
+        stockQuantity: p.stock_quantity ?? 0,
         createdAt: p.created_at || new Date().toISOString(),
       }));
       setStoreProducts(mapped);

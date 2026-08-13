@@ -16,6 +16,7 @@ import {
   Clock,
   Lock,
   ArrowRight,
+  AlertCircle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -33,7 +34,10 @@ export function ProductDetail({ product }: ProductDetailProps) {
 
   const total = product.price * quantity + DELIVERY_FEE;
 
+  const isOutOfStock = product.stockQuantity === 0;
+
   const handleOrder = () => {
+    if (isOutOfStock) return;
     addToCart(product, quantity);
     setShowCheckoutModal(true);
   };
@@ -123,10 +127,16 @@ export function ProductDetail({ product }: ProductDetailProps) {
           <span className="text-2xl font-extrabold text-orange-600">
             {formatPrice(product.price)}
           </span>
-          {product.inStock && (
+          {product.inStock && !isOutOfStock && (
             <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
               <CheckCircle2 className="w-3 h-3" />
               En stock
+            </span>
+          )}
+          {isOutOfStock && (
+            <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full">
+              <AlertCircle className="w-3 h-3" />
+              Rupture de stock
             </span>
           )}
         </div>
@@ -226,9 +236,14 @@ export function ProductDetail({ product }: ProductDetailProps) {
           </div>
           <Button
             onClick={handleOrder}
-            className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 transition-all active:scale-[0.98]"
+            disabled={isOutOfStock}
+            className={`w-full h-12 font-bold text-base rounded-xl shadow-lg transition-all active:scale-[0.98] ${
+              isOutOfStock
+                ? 'bg-gray-200 text-gray-400 shadow-none cursor-not-allowed'
+                : 'bg-orange-500 hover:bg-orange-600 text-white shadow-orange-500/30'
+            }`}
           >
-            Commander − {formatPrice(total)}
+            {isOutOfStock ? 'En rupture de stock' : `Commander \u2212 ${formatPrice(total)}`}
           </Button>
         </div>
       </div>

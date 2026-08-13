@@ -51,6 +51,7 @@ export function VendorAddProduct() {
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
+  const [stockQty, setStockQty] = useState('1');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [images, setImages] = useState<string[]>([]);
@@ -185,12 +186,14 @@ export function VendorAddProduct() {
     const categoryName = CATEGORIES.find((c) => c.id === category)?.name ?? category;
     const primaryImage = allImages[0] ?? 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop';
     const priceNum = parseInt(price, 10);
+    const stockNum = parseInt(stockQty, 10) || 1;
 
     const { data, error } = await supabase
       .from('products')
       .insert([{
         name, description, price: priceNum, image_url: primaryImage,
         category: categoryName, store_id: resolvedStoreId,
+        stock_quantity: stockNum,
       }])
       .select();
 
@@ -211,6 +214,7 @@ export function VendorAddProduct() {
       vendorPhone: vendorPhone || '+225 07 00 00 00',
       vendorWhatsapp: vendorWhatsapp || '225070000000',
       inStock: true,
+      stockQuantity: stockQty,
       createdAt: new Date().toISOString(),
     };
 
@@ -245,6 +249,7 @@ export function VendorAddProduct() {
               // Revoke any remaining blob URLs to free memory
               pendingPreviews.forEach((url) => URL.revokeObjectURL(url));
               setShowSuccess(false); setName(''); setPrice('');
+              setStockQty('1');
               setCategory(''); setDescription(''); setImages([]);
               setPendingFiles([]); setPendingPreviews([]);
             }}
@@ -451,6 +456,27 @@ export function VendorAddProduct() {
               FCFA
             </span>
           </div>
+        </div>
+
+        {/* Stock Quantity */}
+        <div>
+          <label className="text-sm font-semibold text-gray-700 mb-1.5 block">
+            Quantité en stock
+          </label>
+          <div className="relative">
+            <input
+              type="number"
+              min="0"
+              value={stockQty}
+              onChange={(e) => setStockQty(e.target.value)}
+              placeholder="1"
+              className="w-full h-14 px-4 pr-20 rounded-xl border border-gray-200 text-base focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500 transition-all"
+            />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">
+              unités
+            </span>
+          </div>
+          <p className="text-[11px] text-gray-400 mt-1">Laissez 0 si le produit est en rupture de stock</p>
         </div>
 
         {/* Category - pill selection */}

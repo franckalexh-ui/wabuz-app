@@ -2,7 +2,7 @@
 
 import { Product, formatPrice } from '@/lib/data';
 import { useAppStore } from '@/lib/store';
-import { Heart, Star } from 'lucide-react';
+import { Heart, Star, AlertCircle } from 'lucide-react';
 import { useState } from 'react';
 
 interface ProductCardProps {
@@ -24,13 +24,15 @@ export function ProductCard({ product }: ProductCardProps) {
   ];
   const gradientIndex = product.id.charCodeAt(product.id.length - 1) % gradients.length;
 
+  const isOutOfStock = product.stockQuantity === 0;
+
   return (
     <div
-      onClick={() => selectProduct(product)}
-      className="w-full text-left group cursor-pointer"
+      onClick={() => !isOutOfStock && selectProduct(product)}
+      className={`w-full text-left group cursor-pointer ${isOutOfStock ? 'opacity-60' : ''}`}
       role="button"
-      tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectProduct(product); } }}
+      tabIndex={isOutOfStock ? -1 : 0}
+      onKeyDown={(e) => { if (!isOutOfStock && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); selectProduct(product); } }}
     >
       <div className="relative rounded-xl overflow-hidden bg-gray-50 aspect-square">
         {/* Image */}
@@ -78,6 +80,16 @@ export function ProductCard({ product }: ProductCardProps) {
             }`}
           />
         </button>
+
+        {/* Out of Stock Overlay */}
+        {isOutOfStock && (
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px] flex items-center justify-center">
+            <div className="bg-white/95 rounded-lg px-3 py-1.5 shadow-md flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5 text-red-500" />
+              <span className="text-xs font-bold text-red-600">Rupture</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Product Info */}

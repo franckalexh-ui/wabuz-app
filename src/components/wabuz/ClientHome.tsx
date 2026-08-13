@@ -27,7 +27,8 @@ function normalizeRow(row: any): Product {
     vendorRating: Number(row.vendor_rating ?? row.vendorRating ?? 0),
     vendorPhone: row.vendor_phone ?? row.vendorPhone ?? '',
     vendorWhatsapp: row.vendor_whatsapp ?? row.vendorWhatsapp ?? '',
-    inStock: row.in_stock ?? row.inStock ?? true,
+    inStock: (row.stock_quantity ?? 1) > 0,
+    stockQuantity: Number(row.stock_quantity ?? 1),
     createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString(),
   };
 }

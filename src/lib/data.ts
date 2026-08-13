@@ -13,6 +13,7 @@ export interface Product {
   vendorPhone: string;
   vendorWhatsapp: string;
   inStock: boolean;
+  stockQuantity: number; // stock count from Supabase, 0 = out of stock
   createdAt: string;
 }
 
@@ -165,6 +166,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 07 58 42 10',
     vendorWhatsapp: '22507584210',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-11-01',
   },
   {
@@ -183,6 +185,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 07 58 42 10',
     vendorWhatsapp: '22507584210',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-11-05',
   },
   {
@@ -201,6 +204,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 05 44 89 22',
     vendorWhatsapp: '22505448922',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-10-28',
   },
   {
@@ -218,6 +222,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 05 44 89 22',
     vendorWhatsapp: '22505448922',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-11-02',
   },
   {
@@ -235,6 +240,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 01 23 67 45',
     vendorWhatsapp: '22501236745',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-11-03',
   },
   {
@@ -253,6 +259,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 01 23 67 45',
     vendorWhatsapp: '22501236745',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-11-01',
   },
   {
@@ -270,6 +277,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 07 11 55 88',
     vendorWhatsapp: '22507115588',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-10-25',
   },
   {
@@ -287,6 +295,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 07 11 55 88',
     vendorWhatsapp: '22507115588',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-10-20',
   },
   {
@@ -305,6 +314,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 05 99 33 77',
     vendorWhatsapp: '22505993377',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-11-04',
   },
   {
@@ -322,6 +332,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 05 99 33 77',
     vendorWhatsapp: '22505993377',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-11-06',
   },
   {
@@ -339,6 +350,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 05 44 89 22',
     vendorWhatsapp: '22505448922',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-11-07',
   },
   {
@@ -356,6 +368,7 @@ export const PRODUCTS: Product[] = [
     vendorPhone: '+225 07 58 42 10',
     vendorWhatsapp: '22507584210',
     inStock: true,
+    stockQuantity: 10,
     createdAt: '2024-11-08',
   },
 ];
