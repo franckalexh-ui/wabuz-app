@@ -2,11 +2,11 @@
 
 import { useAppStore } from '@/lib/store';
 import { CATEGORIES, formatPrice } from '@/lib/data';
-import { useState } from 'react';
-import { Camera, Link2, X, CheckCircle2, ArrowLeft, Sparkles, ImagePlus, Loader2 } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Camera, X, CheckCircle2, Sparkles, ImagePlus, Loader2, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 
 const DEFAULT_STORE_ID = 'a1b2c3d4-1234-5678-9101-e11213141516';
 
@@ -51,18 +51,18 @@ export function VendorAddProduct() {
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
   const [images, setImages] = useState<string[]>([]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [createdProductName, setCreatedProductName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
-  const handleAddImage = () => {
-    if (imageUrl.trim() && !images.includes(imageUrl.trim())) {
-      setImages([...images, imageUrl.trim()]);
-      setImageUrl('');
-    }
-  };
+  // ── File upload refs ──────────────────────────────────
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Selected files pending upload (for preview before submit)
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
 
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
@@ -74,6 +74,59 @@ export function VendorAddProduct() {
     }
   };
 
+  // ── File selection handler ────────────────────────────
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newFiles: File[] = [];
+    const newPreviews: string[] = [];
+
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+      newFiles.push(file);
+      newPreviews.push(URL.createObjectURL(file));
+    });
+
+    setPendingFiles((prev) => [...prev, ...newFiles]);
+    setPendingPreviews((prev) => [...prev, ...newPreviews]);
+
+    // Reset input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemovePendingFile = (index: number) => {
+    // Revoke the object URL to free memory
+    URL.revokeObjectURL(pendingPreviews[index]);
+    setPendingFiles((prev) => prev.filter((_, i) => i !== index));
+    setPendingPreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // ── Upload image to Supabase Storage ──────────────────
+  const uploadImageToStorage = async (file: File): Promise<string | null> => {
+    if (!isSupabaseConfigured) return null;
+
+    const ext = file.name.split('.').pop() || 'jpg';
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const filePath = `products/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('products')
+      .upload(filePath, file, { cacheControl: '3600', upsert: false });
+
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('products')
+      .getPublicUrl(filePath);
+
+    return urlData?.publicUrl || null;
+  };
+
+  // ── Submit handler ────────────────────────────────────
   const handleSubmit = async () => {
     if (!name || !price || !category || !description) {
       toast({
@@ -85,9 +138,30 @@ export function VendorAddProduct() {
     }
 
     setSubmitting(true);
+    setUploadingImage(pendingFiles.length > 0);
+
+    // Upload pending files to Supabase Storage
+    const uploadedUrls: string[] = [];
+    for (const file of pendingFiles) {
+      const publicUrl = await uploadImageToStorage(file);
+      if (publicUrl) {
+        uploadedUrls.push(publicUrl);
+      } else {
+        toast({
+          title: "Erreur d'upload",
+          description: `Impossible de télécharger "${file.name}". Réessayez.`,
+          variant: 'destructive',
+        });
+      }
+    }
+
+    setUploadingImage(false);
+
+    // Merge: existing URL images + newly uploaded images
+    const allImages = [...images, ...uploadedUrls];
 
     const categoryName = CATEGORIES.find((c) => c.id === category)?.name ?? category;
-    const primaryImage = images[0] ?? 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop';
+    const primaryImage = allImages[0] ?? 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop';
     const priceNum = parseInt(price, 10);
 
     const { data, error } = await supabase
@@ -108,7 +182,7 @@ export function VendorAddProduct() {
     const product = {
       id: insertedRow?.id ? String(insertedRow.id) : `p_new_${Date.now()}`,
       name, price: priceNum, category, description,
-      images: images.length > 0 ? images : [primaryImage],
+      images: allImages.length > 0 ? allImages : [primaryImage],
       vendorId: 'v_current',
       vendorName: vendorStoreName || 'Ma Boutique',
       vendorRating: 5.0,
@@ -148,6 +222,7 @@ export function VendorAddProduct() {
             onClick={() => {
               setShowSuccess(false); setName(''); setPrice('');
               setCategory(''); setDescription(''); setImages([]);
+              setPendingFiles([]); setPendingPreviews([]);
             }}
             className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-500/30"
           >
@@ -167,17 +242,19 @@ export function VendorAddProduct() {
 
   const priceNum = parseInt(price, 10) || 0;
   const suggestedImages = category ? SUGGESTED_IMAGES[category] || [] : [];
+  const totalImageCount = images.length + pendingPreviews.length;
+  const primaryPreview = images[0] || pendingPreviews[0];
 
   return (
     <div className="pb-4">
       {/* ── Live Preview Card (at top, updates instantly) ──────── */}
-      {(name || priceNum > 0 || images.length > 0) && (
+      {(name || priceNum > 0 || totalImageCount > 0) && (
         <div className="px-4 pt-4 mb-2">
           <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Aperçu en direct</p>
           <div className="bg-white rounded-2xl border border-gray-100 shadow-md p-3 flex gap-3">
             <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 relative">
-              {images[0] ? (
-                <img src={images[0]} alt={name} className="w-full h-full object-cover" />
+              {primaryPreview ? (
+                <img src={primaryPreview} alt={name} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-3xl bg-gradient-to-br from-gray-100 to-gray-50">
                   {category ? CATEGORIES.find((c) => c.id === category)?.icon : '📦'}
@@ -208,16 +285,18 @@ export function VendorAddProduct() {
       </div>
 
       <div className="px-4 space-y-5">
-        {/* Photos */}
+        {/* ── Photo Upload Zone ────────────────────────────────── */}
         <div>
           <label className="text-sm font-semibold text-gray-700 mb-2 block">
             Photos du produit
           </label>
-          <div className="flex gap-2 flex-wrap mb-2">
+
+          {/* Image thumbnails: uploaded URLs + pending local previews */}
+          <div className="flex gap-2 flex-wrap mb-3">
+            {/* Existing URL images */}
             {images.map((img, i) => (
-              <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 group">
+              <div key={`url-${i}`} className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 group">
                 <img src={img} alt={`Product ${i + 1}`} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors" />
                 <button
                   onClick={() => handleRemoveImage(i)}
                   className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
@@ -226,35 +305,51 @@ export function VendorAddProduct() {
                 </button>
               </div>
             ))}
-            <label className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center hover:border-orange-300 hover:bg-orange-50/50 transition-colors cursor-pointer">
-              <ImagePlus className="w-5 h-5 text-gray-300" />
-              <span className="text-[9px] text-gray-400 mt-1">Ajouter</span>
-            </label>
-          </div>
 
-          {/* Image URL Input */}
-          <div className="flex gap-2 mb-2">
-            <input
-              type="url"
-              value={imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="Collez l'URL d'une image"
-              className="flex-1 h-12 px-4 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500"
-              onKeyDown={(e) => e.key === 'Enter' && handleAddImage()}
-            />
-            <Button
-              onClick={handleAddImage}
-              variant="outline"
-              className="h-12 px-4 border-orange-200 text-orange-600 hover:bg-orange-50 rounded-xl"
+            {/* Pending file previews (local blob URLs) */}
+            {pendingPreviews.map((preview, i) => (
+              <div key={`pending-${i}`} className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 group ring-2 ring-orange-300 ring-offset-1">
+                <img src={preview} alt={`Upload ${i + 1}`} className="w-full h-full object-cover" />
+                <div className="absolute bottom-0 left-0 right-0 bg-orange-500/80 text-[8px] text-white font-bold text-center py-0.5">
+                  Nouveau
+                </div>
+                <button
+                  onClick={() => handleRemovePendingFile(i)}
+                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              </div>
+            ))}
+
+            {/* Add Photo Button — triggers hidden file input */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center hover:border-orange-300 hover:bg-orange-50/50 transition-colors"
             >
-              <Link2 className="w-4 h-4 mr-1" />
-              OK
-            </Button>
+              <Camera className="w-5 h-5 text-gray-300" />
+              <span className="text-[9px] text-gray-400 mt-1">Photo</span>
+            </button>
           </div>
 
-          {/* Suggested Images */}
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+
+          {/* Upload instruction */}
+          <p className="text-[11px] text-gray-400">
+            Appuyez sur <span className="font-medium">📷 Photo</span> pour prendre une photo ou choisir une image. Les images seront téléchargées lors de la publication.
+          </p>
+
+          {/* Suggested Images (still available as quick picks) */}
           {suggestedImages.length > 0 && (
-            <div>
+            <div className="mt-3">
               <p className="text-[11px] text-gray-400 mb-1.5">Images suggérées :</p>
               <div className="flex gap-2">
                 {suggestedImages.map((url, i) => (
@@ -355,14 +450,20 @@ export function VendorAddProduct() {
           {submitting ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              Publication en cours…
+              {uploadingImage ? "Téléchargement de l'image…" : 'Publication en cours…'}
             </>
           ) : (
-            'Publier le produit'
+            <>
+              <Upload className="w-4 h-4 mr-2" />
+              Publier le produit
+            </>
           )}
         </Button>
         <p className="text-[11px] text-gray-400 text-center mt-2">
-          Votre produit sera visible immédiatement sur WABUZ
+          {pendingFiles.length > 0
+            ? `${pendingFiles.length} image(s) seront téléchargées automatiquement`
+            : 'Votre produit sera visible immédiatement sur WABUZ'
+          }
         </p>
       </div>
     </div>
