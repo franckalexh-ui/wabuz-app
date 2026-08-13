@@ -4,7 +4,6 @@ import { useAppStore } from '@/lib/store';
 import { formatPrice, CATEGORIES } from '@/lib/data';
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
 import {
-  Store,
   Phone,
   MessageCircle,
   ShoppingBag,
@@ -314,19 +313,11 @@ export function VendorStore() {
               );
             })}
           </div>
-        ) : !resolvedStoreId ? (
-          <div className="bg-amber-50 rounded-2xl py-10 text-center border border-amber-100">
-            <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-3">
-              <Store className="w-7 h-7 text-amber-500" />
-            </div>
-            <p className="text-sm font-semibold text-amber-800">Boutique non synchronisée</p>
-            <p className="text-xs text-amber-600 mt-1">Votre boutique n'est pas encore connectée au serveur.</p>
-          </div>
         ) : (
           <div className="bg-gray-50 rounded-2xl py-10 text-center">
             <div className="text-4xl mb-2">📦</div>
             <p className="text-sm font-medium text-gray-500">Aucun produit</p>
-            <p className="text-xs text-gray-400 mt-0.5">Vous n'avez pas encore de produits. Cliquez sur 'Ajouter' pour en créer un.</p>
+            <p className="text-xs text-gray-400 mt-0.5">Cliquez sur 'Ajouter' pour créer votre premier produit.</p>
           </div>
         )}
       </div>

@@ -61,7 +61,7 @@ interface AppState {
   activeClientOrderFilter: 'all' | 'active' | 'delivered';
   confirmingReceiptId: string | null;
 
-  // Client Profile State (Invisible Account)
+  // Client Profile State
   clientPhone: string;
   clientFirstName: string;
   clientLastName: string;
@@ -106,7 +106,7 @@ interface AppState {
   setConfirmingReceiptId: (id: string | null) => void;
   getActiveOrdersCount: () => number;
 
-  // Client Profile Actions (Invisible Account)
+  // Client Profile Actions
   setClientProfile: (phone: string, firstName: string, lastName: string) => void;
   clientLogout: () => void;
   loadClientFromStorage: () => void;
@@ -358,7 +358,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     ).length;
   },
 
-  // ── Client Profile Actions (Invisible Account) ────────────
+  // ── Client Profile Actions ──────────────────────────────
   setClientProfile: (phone, firstName, lastName) => {
     set({
       clientPhone: phone,

@@ -87,16 +87,16 @@ export function ClientProfile() {
           <Shield className="w-5 h-5 text-emerald-500 flex-shrink-0" />
           <div className="flex-1">
             <span className="text-xs font-bold text-emerald-800 block">Compte vérifié</span>
-            <span className="text-[10px] text-emerald-600">Votre compte invisible WABUZ est actif</span>
+            <span className="text-[10px] text-emerald-600">Votre compte WABUZ est actif</span>
           </div>
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
         </div>
       ) : (
-        <div className="bg-amber-50 rounded-xl p-3 flex items-center gap-2.5 mb-5">
-          <Shield className="w-5 h-5 text-amber-500 flex-shrink-0" />
+        <div className="bg-orange-50 rounded-xl p-3 flex items-center gap-2.5 mb-5">
+          <ShoppingBag className="w-5 h-5 text-orange-500 flex-shrink-0" />
           <div className="flex-1">
-            <span className="text-xs font-bold text-amber-800 block">Compte non créé</span>
-            <span className="text-[10px] text-amber-600">Faites une première commande pour créer votre compte invisible</span>
+            <span className="text-xs font-bold text-orange-800 block">Bienvenue sur WABUZ !</span>
+            <span className="text-[10px] text-orange-600">Faites votre première commande pour commencer</span>
           </div>
         </div>
       )}

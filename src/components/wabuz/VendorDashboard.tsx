@@ -153,26 +153,6 @@ export function VendorDashboard() {
 
   return (
     <div className="pb-4">
-      {/* ── Missing store_id banner ──────────────────────────── */}
-      {!resolvedStoreId && (
-        <div className="mx-4 mt-4 mb-4 rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-800">Boutique non synchronisée</p>
-            <p className="text-xs text-amber-600 mt-0.5">Votre boutique n'est pas encore connectée au serveur. Recréez-la pour activer la synchronisation.</p>
-            <Button
-              onClick={() => {
-                setIsStoreCreated(false);
-                setView('vendor-dashboard');
-              }}
-              size="sm"
-              className="mt-2 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold"
-            >
-              Créer ma boutique
-            </Button>
-          </div>
-        </div>
-      )}
       {/* ── Gradient Header with Store Name + Revenue ─────────── */}
       <div className="mx-4 mt-4 mb-5 rounded-2xl bg-gradient-to-br from-orange-500 via-amber-500 to-yellow-400 p-5 text-white relative overflow-hidden">
         <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full" />

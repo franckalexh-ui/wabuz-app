@@ -934,7 +934,7 @@ export function CheckoutFlow() {
       </div>
 
       {/* ═════════════════════════════════════════════════════════
-          OTP / PHONE VERIFICATION (Invisible Account)
+          OTP / PHONE VERIFICATION
           ═════════════════════════════════════════════════════════ */}
       <div className="bg-white rounded-2xl border border-gray-100 p-4 mb-4 space-y-3">
         <div className="flex items-center gap-2 mb-1">

@@ -308,11 +308,11 @@ export function VendorAddProduct() {
         <span className="text-xs text-gray-400">Remplissez les informations ci-dessous</span>
       </div>
 
-      {/* ── No store_id warning ──────────────────────────────── */}
+      {/* ── No store_id: friendly prompt instead of error ──────── */}
       {!resolvedStoreId && (
-        <div className="mx-4 mt-2 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-center">
-          <p className="text-sm font-semibold text-amber-800">Boutique non synchronisée</p>
-          <p className="text-xs text-amber-600 mt-0.5">Vous devez d'abord créer votre boutique pour ajouter des produits.</p>
+        <div className="mx-4 mt-2 rounded-2xl bg-gray-50 border border-gray-100 p-4 text-center">
+          <p className="text-sm font-medium text-gray-600">Créez d'abord votre boutique</p>
+          <p className="text-xs text-gray-400 mt-0.5">Vous pourrez ensuite ajouter vos produits.</p>
         </div>
       )}
 
