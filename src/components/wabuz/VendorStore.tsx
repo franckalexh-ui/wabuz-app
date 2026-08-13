@@ -41,6 +41,24 @@ export function VendorStore() {
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
+  // ── Resolve store_id: Zustand store OR localStorage fallback ──
+  // On first render, Zustand may not be hydrated yet, so read localStorage directly.
+  const [resolvedStoreId, setResolvedStoreId] = useState<string>(() => {
+    // Priority: Zustand state > localStorage
+    if (vendorStoreId) return vendorStoreId;
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('wabuz_vendor_store_id') || '';
+    }
+    return '';
+  });
+
+  // Keep resolved ID in sync if Zustand updates later
+  useEffect(() => {
+    if (vendorStoreId) {
+      setResolvedStoreId(vendorStoreId);
+    }
+  }, [vendorStoreId]);
+
   // ── Real products from Supabase ──────────────────────────
   const [storeProducts, setStoreProducts] = useState<typeof vendorProducts>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -48,7 +66,7 @@ export function VendorStore() {
   const fetchProducts = useCallback(async () => {
     setProductsLoading(true);
     // No store_id — can't fetch, show empty
-    if (!isSupabaseConfigured || !vendorStoreId) {
+    if (!isSupabaseConfigured || !resolvedStoreId) {
       setStoreProducts([]);
       setProductsLoading(false);
       return;
@@ -56,7 +74,7 @@ export function VendorStore() {
     const { data } = await supabase
       .from('products')
       .select('*')
-      .eq('store_id', vendorStoreId)
+      .eq('store_id', resolvedStoreId)
       .order('created_at', { ascending: false });
     if (data) {
       const mapped = data.map((p: any) => ({
@@ -66,7 +84,7 @@ export function VendorStore() {
         category: p.category || '',
         description: p.description || '',
         images: p.image_url ? [p.image_url] : [],
-        vendorId: vendorStoreId,
+        vendorId: resolvedStoreId,
         vendorName: vendorStoreName || 'Ma Boutique',
         vendorRating: 5.0,
         vendorPhone: vendorPhone || '',
@@ -79,7 +97,7 @@ export function VendorStore() {
       setStoreProducts([]);
     }
     setProductsLoading(false);
-  }, [vendorStoreId, vendorStoreName, vendorPhone, vendorWhatsapp]);
+  }, [resolvedStoreId, vendorStoreName, vendorPhone, vendorWhatsapp]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
@@ -278,7 +296,7 @@ export function VendorStore() {
               );
             })}
           </div>
-        ) : !vendorStoreId ? (
+        ) : !resolvedStoreId ? (
           <div className="bg-amber-50 rounded-2xl py-10 text-center border border-amber-100">
             <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-3">
               <Store className="w-7 h-7 text-amber-500" />
@@ -290,7 +308,7 @@ export function VendorStore() {
           <div className="bg-gray-50 rounded-2xl py-10 text-center">
             <div className="text-4xl mb-2">📦</div>
             <p className="text-sm font-medium text-gray-500">Aucun produit</p>
-            <p className="text-xs text-gray-400 mt-0.5">Ajoutez votre premier produit depuis le bouton ➕</p>
+            <p className="text-xs text-gray-400 mt-0.5">Vous n'avez pas encore de produits. Cliquez sur 'Ajouter' pour en créer un.</p>
           </div>
         )}
       </div>

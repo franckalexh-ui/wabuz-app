@@ -93,6 +93,19 @@ const FILTERS: { key: OrderFilter; label: string }[] = [
 // ── Component ────────────────────────────────────────────────
 export function VendorOrders() {
   const { setVendorPendingCount, vendorStoreId, setView, setIsStoreCreated } = useAppStore();
+
+  // ── Resolve store_id: Zustand store OR localStorage fallback ──
+  const [resolvedStoreId, setResolvedStoreId] = useState<string>(() => {
+    if (vendorStoreId) return vendorStoreId;
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('wabuz_vendor_store_id') || '';
+    }
+    return '';
+  });
+  useEffect(() => {
+    if (vendorStoreId) setResolvedStoreId(vendorStoreId);
+  }, [vendorStoreId]);
+
   const [orders, setOrders] = useState<SupabaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +118,7 @@ export function VendorOrders() {
     setError(null);
 
     // No store_id — don't show error, just show empty state
-    if (!isSupabaseConfigured || !vendorStoreId) {
+    if (!isSupabaseConfigured || !resolvedStoreId) {
       setOrders([]);
       setLoading(false);
       return;
@@ -114,7 +127,7 @@ export function VendorOrders() {
     const { data, error: fetchError } = await supabase
       .from('orders')
       .select('*, products(name, image_url, price)')
-      .eq('store_id', vendorStoreId)
+      .eq('store_id', resolvedStoreId)
       .order('created_at', { ascending: false });
 
     if (fetchError) {
@@ -126,7 +139,7 @@ export function VendorOrders() {
       setVendorPendingCount(fetched.filter((o) => o.status === 'pending').length);
     }
     setLoading(false);
-  }, [setVendorPendingCount, vendorStoreId]);
+  }, [setVendorPendingCount, resolvedStoreId]);
 
   useEffect(() => {
     fetchOrders();
@@ -498,7 +511,7 @@ export function VendorOrders() {
             );
           })}
 
-          {filteredOrders.length === 0 && !vendorStoreId && (
+          {filteredOrders.length === 0 && !resolvedStoreId && (
             <div className="text-center py-16">
               <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4">
                 <Store className="w-8 h-8 text-amber-500" />
@@ -515,7 +528,7 @@ export function VendorOrders() {
             </div>
           )}
 
-          {filteredOrders.length === 0 && vendorStoreId && (
+          {filteredOrders.length === 0 && resolvedStoreId && (
             <div className="text-center py-16">
               <div className="text-5xl mb-4">📦</div>
               <h3 className="text-base font-semibold text-gray-700 mb-1">Aucune commande</h3>

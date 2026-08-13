@@ -45,6 +45,10 @@ const SUGGESTED_IMAGES: Record<string, string[]> = {
 
 export function VendorAddProduct() {
   const { addVendorProduct, setView, vendorStoreName, vendorPhone, vendorWhatsapp, vendorStoreId } = useAppStore();
+
+  // ── Resolve store_id: Zustand store OR localStorage fallback ──
+  const resolvedStoreId = vendorStoreId || (typeof window !== 'undefined' ? localStorage.getItem('wabuz_vendor_store_id') || '' : '');
+
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [category, setCategory] = useState('');
@@ -146,7 +150,7 @@ export function VendorAddProduct() {
     }
 
     // Require a valid store_id — vendor must create a store first
-    if (!vendorStoreId) {
+    if (!resolvedStoreId) {
       toast({
         title: 'Boutique requise',
         description: 'Veuillez d\'abord créer votre boutique avant d\'ajouter un produit',
@@ -186,7 +190,7 @@ export function VendorAddProduct() {
       .from('products')
       .insert([{
         name, description, price: priceNum, image_url: primaryImage,
-        category: categoryName, store_id: vendorStoreId,
+        category: categoryName, store_id: resolvedStoreId,
       }])
       .select();
 
@@ -305,7 +309,7 @@ export function VendorAddProduct() {
       </div>
 
       {/* ── No store_id warning ──────────────────────────────── */}
-      {!vendorStoreId && (
+      {!resolvedStoreId && (
         <div className="mx-4 mt-2 rounded-2xl bg-amber-50 border border-amber-200 p-4 text-center">
           <p className="text-sm font-semibold text-amber-800">Boutique non synchronisée</p>
           <p className="text-xs text-amber-600 mt-0.5">Vous devez d'abord créer votre boutique pour ajouter des produits.</p>
@@ -492,7 +496,7 @@ export function VendorAddProduct() {
       <div className="px-4 mt-6">
         <Button
           onClick={handleSubmit}
-          disabled={!vendorStoreId || !name || !price || !category || !description || (images.length === 0 && pendingFiles.length === 0) || submitting}
+          disabled={!resolvedStoreId || !name || !price || !category || !description || (images.length === 0 && pendingFiles.length === 0) || submitting}
           className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50 transition-all active:scale-[0.98]"
         >
           {submitting ? (

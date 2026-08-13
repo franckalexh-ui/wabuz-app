@@ -52,6 +52,18 @@ interface SupabaseOrder {
 export function VendorDashboard() {
   const { isStoreCreated, vendorStoreName, vendorStoreId, setView, vendorProducts, newOrderCount, clearNewOrderCount, setVendorPendingCount, setIsStoreCreated } = useAppStore();
 
+  // ── Resolve store_id: Zustand store OR localStorage fallback ──
+  const [resolvedStoreId, setResolvedStoreId] = useState<string>(() => {
+    if (vendorStoreId) return vendorStoreId;
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('wabuz_vendor_store_id') || '';
+    }
+    return '';
+  });
+  useEffect(() => {
+    if (vendorStoreId) setResolvedStoreId(vendorStoreId);
+  }, [vendorStoreId]);
+
   // ── Real orders from Supabase ────────────────────────────
   const [orders, setOrders] = useState<SupabaseOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
@@ -59,7 +71,7 @@ export function VendorDashboard() {
   const fetchOrders = useCallback(async () => {
     setOrdersLoading(true);
     // No store_id — can't fetch orders, but don't show error
-    if (!isSupabaseConfigured || !vendorStoreId) {
+    if (!isSupabaseConfigured || !resolvedStoreId) {
       setOrders([]);
       setOrdersLoading(false);
       return;
@@ -67,7 +79,7 @@ export function VendorDashboard() {
     const { data } = await supabase
       .from('orders')
       .select('*, products(name, image_url, price)')
-      .eq('store_id', vendorStoreId)
+      .eq('store_id', resolvedStoreId)
       .order('created_at', { ascending: false });
     if (data) {
       const fetched = data as SupabaseOrder[];
@@ -75,7 +87,7 @@ export function VendorDashboard() {
       setVendorPendingCount(fetched.filter((o) => o.status === 'pending').length);
     }
     setOrdersLoading(false);
-  }, [setVendorPendingCount, vendorStoreId]);
+  }, [setVendorPendingCount, resolvedStoreId]);
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
@@ -88,7 +100,7 @@ export function VendorDashboard() {
   }, [clearNewOrderCount]);
 
   // No store at all — show setup wizard
-  if (!isStoreCreated && !vendorStoreId) {
+  if (!isStoreCreated && !resolvedStoreId) {
     return <StoreSetup />;
   }
 
@@ -126,7 +138,7 @@ export function VendorDashboard() {
   return (
     <div className="pb-4">
       {/* ── Missing store_id banner ──────────────────────────── */}
-      {!vendorStoreId && (
+      {!resolvedStoreId && (
         <div className="mx-4 mt-4 mb-4 rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
