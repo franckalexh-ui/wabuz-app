@@ -276,37 +276,6 @@ export function VendorAddProduct() {
 
   return (
     <div className="pb-4">
-      {/* ── Live Preview Card (at top, updates instantly) ──────── */}
-      {(name || priceNum > 0 || totalImageCount > 0) && (
-        <div className="px-4 pt-4 mb-2">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Aperçu en direct</p>
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-md p-3 flex gap-3">
-            <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 relative">
-              {primaryPreview ? (
-                <img src={primaryPreview} alt={name} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-3xl bg-gradient-to-br from-gray-100 to-gray-50">
-                  {category ? CATEGORIES.find((c) => c.id === category)?.icon : '📦'}
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-gray-900 line-clamp-2">
-                {name || 'Nom du produit'}
-              </p>
-              <p className="text-base font-bold text-orange-600 mt-0.5">
-                {priceNum > 0 ? formatPrice(priceNum) : '— FCFA'}
-              </p>
-              {category && (
-                <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium inline-block mt-1">
-                  {CATEGORIES.find((c) => c.id === category)?.name}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="px-4 pt-4 pb-2">
         <h2 className="text-lg font-bold text-gray-900">Nouveau produit</h2>
@@ -517,6 +486,37 @@ export function VendorAddProduct() {
           <p className="text-[11px] text-gray-400 mt-1">{description.length}/500 caractères</p>
         </div>
       </div>
+
+      {/* ── Live Preview Card (at bottom, updates instantly) ──────── */}
+      {(name || priceNum > 0 || totalImageCount > 0) && (
+        <div className="px-4 mt-5">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Aperçu en direct</p>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-md p-3 flex gap-3">
+            <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 relative">
+              {primaryPreview ? (
+                <img src={primaryPreview} alt={name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-3xl bg-gradient-to-br from-gray-100 to-gray-50">
+                  {category ? CATEGORIES.find((c) => c.id === category)?.icon : '📦'}
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+                {name || 'Nom du produit'}
+              </p>
+              <p className="text-base font-bold text-orange-600 mt-0.5">
+                {priceNum > 0 ? formatPrice(priceNum) : '— FCFA'}
+              </p>
+              {category && (
+                <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium inline-block mt-1">
+                  {CATEGORIES.find((c) => c.id === category)?.name}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Submit Button */}
       <div className="px-4 mt-6">
