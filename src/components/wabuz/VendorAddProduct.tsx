@@ -87,6 +87,22 @@ export function VendorAddProduct() {
   // AND we confirmed there is no store_id anywhere.
   const showNoStoreWarning = resolvedStoreId !== null && !resolvedStoreId && !isStoreCreated;
 
+  // ── Does the vendor have a valid store? ──
+  // Combine resolvedStoreId AND isStoreCreated for maximum robustness.
+  // isStoreCreated is set by loadClientFromStorage() on app init.
+  const hasStore = !!(resolvedStoreId || isStoreCreated);
+
+  // Safety: if isStoreCreated is true but resolvedStoreId is still null/empty,
+  // try to resolve it from Zustand or localStorage immediately.
+  useEffect(() => {
+    if (isStoreCreated && !resolvedStoreId && typeof window !== 'undefined') {
+      const id = vendorStoreId || localStorage.getItem('wabuz_vendor_store_id') || '';
+      if (id) {
+        setResolvedStoreId(id);
+      }
+    }
+  }, [isStoreCreated, resolvedStoreId, vendorStoreId]);
+
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
   const [stockQty, setStockQty] = useState('1');
@@ -375,6 +391,21 @@ export function VendorAddProduct() {
   // Price markdown hint: show if editing and new price < original
   const showPriceMarkdownHint = isEditing && editingProduct && priceNum > 0 && priceNum < editingProduct.price;
 
+  // ── Button disabled logic (debugged) ──
+  const hasImages = images.length > 0 || pendingFiles.length > 0;
+  const isButtonDisabled = !hasStore || !name || !price || !category || !description || !hasImages || submitting;
+
+  // Debug log: identify exactly which condition is failing
+  if (typeof window !== 'undefined') {
+    const debugInfo = {
+      hasStore, resolvedStoreId, isStoreCreated, vendorStoreId,
+      name: !!name, price: !!price, category: !!category, description: !!description,
+      hasImages, imagesLen: images.length, pendingFilesLen: pendingFiles.length,
+      submitting, isButtonDisabled,
+    };
+    console.log('[VendorAddProduct] disabled check:', debugInfo);
+  }
+
   return (
     <div className="pb-4">
       {/* ── Header ─────────────────────────────────────────────── */}
@@ -646,7 +677,7 @@ export function VendorAddProduct() {
       <div className="px-4 mt-6">
         <Button
           onClick={handleSubmit}
-          disabled={!resolvedStoreId || !name || !price || !category || !description || (images.length === 0 && pendingFiles.length === 0) || submitting}
+          disabled={isButtonDisabled}
           className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white font-bold text-base rounded-xl shadow-lg shadow-orange-500/30 disabled:opacity-50 transition-all active:scale-[0.98]"
         >
           {submitting ? (
