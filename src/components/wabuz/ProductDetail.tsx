@@ -30,14 +30,33 @@ export function ProductDetail({ product }: ProductDetailProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [stockWarning, setStockWarning] = useState<string | null>(null);
   const [imgErrors, setImgErrors] = useState<Set<number>>(new Set());
 
   const total = product.price * quantity + DELIVERY_FEE;
 
   const isOutOfStock = product.stockQuantity === 0;
 
+  const handleIncrement = () => {
+    if (quantity >= product.stockQuantity) {
+      setStockWarning(`Stock insuffisant. Il ne reste que ${product.stockQuantity} article(s).`);
+      return;
+    }
+    setStockWarning(null);
+    setQuantity(quantity + 1);
+  };
+
+  const handleDecrement = () => {
+    setStockWarning(null);
+    setQuantity(Math.max(1, quantity - 1));
+  };
+
   const handleOrder = () => {
     if (isOutOfStock) return;
+    if (quantity > product.stockQuantity) {
+      setStockWarning(`Stock insuffisant. Il ne reste que ${product.stockQuantity} article(s).`);
+      return;
+    }
     addToCart(product, quantity);
     setShowCheckoutModal(true);
   };
@@ -222,33 +241,45 @@ export function ProductDetail({ product }: ProductDetailProps) {
         <div className="max-w-lg mx-auto">
           {/* Quantity Selector */}
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-gray-500">Quantité</span>
+            <span className="text-sm text-gray-500">Quantité <span className="text-gray-400">({product.stockQuantity} dispo)</span></span>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                onClick={handleDecrement}
                 className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-700 font-bold hover:bg-gray-200 transition-colors"
               >
                 −
               </button>
               <span className="text-base font-bold text-gray-900 w-6 text-center">{quantity}</span>
               <button
-                onClick={() => setQuantity(quantity + 1)}
-                className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-700 font-bold hover:bg-gray-200 transition-colors"
+                onClick={handleIncrement}
+                className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold transition-colors ${
+                  quantity >= product.stockQuantity
+                    ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
                 +
               </button>
             </div>
           </div>
+          {/* Stock Warning */}
+          {stockWarning && (
+            <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-red-50 border border-red-200 rounded-lg">
+              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+              <span className="text-xs text-red-600 font-medium">{stockWarning}</span>
+            </div>
+          )}
+
           <Button
             onClick={handleOrder}
-            disabled={isOutOfStock}
+            disabled={isOutOfStock || quantity > product.stockQuantity}
             className={`w-full h-12 font-bold text-base rounded-xl shadow-lg transition-all active:scale-[0.98] ${
-              isOutOfStock
+              isOutOfStock || quantity > product.stockQuantity
                 ? 'bg-gray-200 text-gray-400 shadow-none cursor-not-allowed'
                 : 'bg-orange-500 hover:bg-orange-600 text-white shadow-orange-500/30'
             }`}
           >
-            {isOutOfStock ? 'En rupture de stock' : `Commander \u2212 ${formatPrice(total)}`}
+            {isOutOfStock ? 'En rupture de stock' : quantity > product.stockQuantity ? 'Stock insuffisant' : `Commander \u2212 ${formatPrice(total)}`}
           </Button>
         </div>
       </div>

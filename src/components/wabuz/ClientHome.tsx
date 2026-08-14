@@ -24,10 +24,10 @@ function normalizeRow(row: any): Product {
         ? [row.image_url]
         : [],
     vendorId: String(row.store_id ?? row.vendor_id ?? row.vendorId ?? ''),
-    vendorName: row.vendor_name ?? row.store_name ?? row.vendorName ?? 'Boutique WABUZ',
+    vendorName: row.stores?.name ?? row.vendor_name ?? row.store_name ?? row.vendorName ?? 'Boutique WABUZ',
     vendorRating: Number(row.vendor_rating ?? row.vendorRating ?? 0),
-    vendorPhone: row.vendor_phone ?? row.vendorPhone ?? '',
-    vendorWhatsapp: row.vendor_whatsapp ?? row.vendorWhatsapp ?? '',
+    vendorPhone: row.stores?.phone ?? row.vendor_phone ?? row.vendorPhone ?? '',
+    vendorWhatsapp: row.stores?.whatsapp_link ?? row.stores?.whatsapp ?? row.vendor_whatsapp ?? row.vendorWhatsapp ?? '',
     inStock: (row.stock_quantity ?? 1) > 0,
     stockQuantity: Number(row.stock_quantity ?? 1),
     createdAt: row.created_at ?? row.createdAt ?? new Date().toISOString(),
@@ -62,7 +62,10 @@ export function ClientHome({ autoFocusSearch = false }: ClientHomeProps) {
 
     const { data, error: fetchError } = await supabase
       .from('products')
-      .select('*');
+      .select(`
+        *,
+        stores ( name, phone, whatsapp, whatsapp_link )
+      `);
 
     if (fetchError) {
       setError(fetchError.message);
@@ -95,7 +98,10 @@ export function ClientHome({ autoFocusSearch = false }: ClientHomeProps) {
       setSearchLoading(true);
       const { data, error: searchError } = await supabase
         .from('products')
-        .select('*')
+        .select(`
+          *,
+          stores ( name, phone, whatsapp, whatsapp_link )
+        `)
         .or(`name.ilike.%${trimmed}%,description.ilike.%${trimmed}%,category.ilike.%${trimmed}%`);
 
       if (searchError) {

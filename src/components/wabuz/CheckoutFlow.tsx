@@ -345,6 +345,12 @@ export function CheckoutFlow() {
     };
   }, [step, setPaymentStatus, setEscrowStatus, setLastOrderId, cart, deliveryZone, paymentMethod, addClientOrder]);
 
+  // ── Check if any cart item exceeds available stock ────────
+  const overStockItem = cart.find((item) => item.quantity > item.product.stockQuantity);
+  const overStockMessage = overStockItem
+    ? `Stock insuffisant. Il ne reste que ${overStockItem.product.stockQuantity} article(s) pour "${overStockItem.product.name}".`
+    : null;
+
   const handleConfirmPayment = useCallback(() => {
     // Block payment if any cart item is out of stock
     const outOfStockItem = cart.find((item) => item.product.stockQuantity === 0);
@@ -352,6 +358,17 @@ export function CheckoutFlow() {
       toast({
         title: 'Rupture de stock',
         description: `${outOfStockItem.product.name} n'est plus disponible.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Block payment if any cart item quantity exceeds available stock
+    const exceededItem = cart.find((item) => item.quantity > item.product.stockQuantity);
+    if (exceededItem) {
+      toast({
+        title: 'Stock insuffisant',
+        description: `Il ne reste que ${exceededItem.product.stockQuantity} article(s) pour "${exceededItem.product.name}".`,
         variant: 'destructive',
       });
       return;
@@ -1136,12 +1153,20 @@ export function CheckoutFlow() {
         </div>
       )}
 
+      {/* Stock Warning */}
+      {overStockMessage && (
+        <div className="flex items-center gap-2 mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl">
+          <AlertTriangle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <span className="text-xs text-red-600 font-medium">{overStockMessage}</span>
+        </div>
+      )}
+
       {/* Confirm Payment Button */}
       <Button
         onClick={handleConfirmPayment}
-        disabled={!phoneVerified || !isProfileComplete}
+        disabled={!phoneVerified || !isProfileComplete || !!overStockItem}
         className={`w-full h-13 font-bold text-base rounded-xl shadow-lg transition-all active:scale-[0.98] ${
-          phoneVerified && isProfileComplete
+          phoneVerified && isProfileComplete && !overStockItem
             ? isWave
               ? 'bg-[#1DC3E0] hover:bg-[#1ab5d1] text-white shadow-[#1DC3E0]/30'
               : 'bg-[#FF6600] hover:bg-[#e85d00] text-white shadow-[#FF6600]/30'
@@ -1153,6 +1178,8 @@ export function CheckoutFlow() {
           ? '🔒 Vérifiez votre numéro d\'abord'
           : !isProfileComplete
           ? '🔒 Entrez votre prénom pour continuer'
+          : overStockItem
+          ? '🚫 Stock insuffisant'
           : isWave ? '💳 Payer avec Wave' : '📱 Payer avec Orange Money'
         }
       </Button>
