@@ -255,7 +255,7 @@ export function CheckoutFlow() {
                 client_phone: phoneVerified ? `225${phoneNumber.replace(/\s/g, '')}` : '2250700000000',
                 delivery_zone: deliveryZone,
                 total_amount: totalAmount,
-                status: 'paid', // paiement confirmé
+                status: 'pending', // nouvel ordre — le vendeur doit confirmer le paiement
                 escrow_status: 'held', // argent bloqué en Escrow
                 payment_method: paymentMethod, // 'wave' ou 'orange_money'
               },
@@ -282,7 +282,7 @@ export function CheckoutFlow() {
               vendorPhone: item.product.vendorPhone,
               deliveryZone,
               totalAmount,
-              status: 'paid',
+              status: 'pending',
               escrowStatus: 'held',
               paymentMethod,
               quantity: item.quantity,
@@ -302,7 +302,7 @@ export function CheckoutFlow() {
               vendorPhone: item.product.vendorPhone,
               deliveryZone,
               totalAmount,
-              status: 'paid',
+              status: 'pending',
               escrowStatus: 'held',
               paymentMethod,
               quantity: item.quantity,

@@ -452,7 +452,9 @@ export const useAppStore = create<AppState>((set, get) => ({
                 if (data && data.length > 0 && data[0].id) {
                   const recoveredId = String(data[0].id);
                   set({ vendorStoreId: recoveredId, isStoreCreated: true });
-                  localStorage.setItem('wabuz_vendor_store_id', recoveredId);
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem('wabuz_vendor_store_id', recoveredId);
+                  }
                   console.log('[loadClientFromStorage] Recovered store_id from Supabase:', recoveredId);
                 }
               });

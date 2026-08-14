@@ -364,7 +364,7 @@ function OrderCard({
                 </span>
               </div>
               <p className="text-xs font-semibold text-gray-900">
-                {order.quantity} article{order.quantity > 1 ? 's' : ''}
+                {(order.quantity ?? 1)} article{(order.quantity ?? 1) > 1 ? 's' : ''}
               </p>
             </div>
             <div className="bg-white rounded-xl p-3">
@@ -375,7 +375,7 @@ function OrderCard({
                 </span>
               </div>
               <p className="text-xs font-semibold text-gray-900">
-                {formatShortDate(order.createdAt)}
+                {formatShortDate(order.createdAt || '')}
               </p>
             </div>
           </div>

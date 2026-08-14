@@ -334,3 +334,23 @@ Stage Summary:
 - isStoreCreated flag can no longer be true without a real store_id backing it
 - Store ID flows correctly: Supabase insert → setVendorStoreId (Zustand + localStorage) → loadClientFromStorage on refresh → resolvedStoreId in all components
 - Build passes successfully
+
+---
+Task ID: 2
+Agent: main
+Task: Code Stabilization - Fix Escrow Status, WhatsApp Format, and SSR LocalStorage
+
+Work Log:
+- Fixed Escrow Status Conflict: Changed initial order status from 'paid' to 'pending' in CheckoutFlow.tsx (Supabase insert + both addClientOrder fallback paths). This ensures vendors see "Confirmer le paiement" button for new orders (pending → paid flow).
+- Verified VendorDashboard.tsx already has pending→paid "Confirmer" button and VendorOrders.tsx has STATUS_CONFIG.pending.nextAction for the same flow.
+- Fixed WhatsApp Number Formatting in ClientOrders.tsx: Both "Contacter" and "Appeler" buttons now transform local 10-digit numbers (07XXXXXXXX) to international Ivorian format (2257XXXXXXXX) using '225' + digitsOnly.replace(/^0/, '').
+- SSR LocalStorage Audit: Verified all 19 localStorage calls across the codebase. All are SSR-safe: inside useState initializers with typeof window guard, inside useEffect with typeof window guard, or inside event handlers (client-side only). Added typeof window guards to 3 previously unguarded calls: handleAntiScamDismiss setItem, anti-scam getItem, and store.ts Supabase recovery setItem.
+- Fixed pre-existing TS errors: order.quantity possibly undefined (added ?? 1), order.createdAt possibly undefined (added || ''), setIsNameTaken boolean|null coercion.
+- Confirmed Realtime subscription in ClientOrders.tsx is untouched and functional.
+- Build passes successfully.
+
+Stage Summary:
+- Orders now start as 'pending' (not 'paid') — vendor must confirm payment before escrow proceeds
+- WhatsApp/tel links now use correct +225 international format for Côte d'Ivoire
+- All localStorage calls are SSR-safe — no more "window is not defined" crashes
+- Realtime subscriptions preserved and working

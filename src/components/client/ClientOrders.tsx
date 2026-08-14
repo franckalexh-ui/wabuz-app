@@ -110,7 +110,9 @@ export default function ClientOrders() {
   const [pendingWhatsappUrl, setPendingWhatsappUrl] = useState<string | null>(null);
 
   const handleAntiScamDismiss = () => {
-    localStorage.setItem('wabuz_seen_warning', 'true');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('wabuz_seen_warning', 'true');
+    }
     setShowAntiScam(false);
     // Now open WhatsApp with the pending URL
     if (pendingWhatsappUrl) {
@@ -341,10 +343,13 @@ export default function ClientOrders() {
               const message = encodeURIComponent(
                 `Bonjour, je vous contacte concernant ma commande WABUZ pour "${vendorName}" (Escrow actif). Je souhaite organiser ma livraison à ${deliveryZone}.`
               );
-              const whatsappUrl = `https://wa.me/${phone.replace(/\D/g, '')}?text=${message}`;
+              // Transform phone to international Ivorian format: remove leading 0, prepend 225
+              const digitsOnly = phone.replace(/\D/g, '');
+              const internationalPhone = '225' + digitsOnly.replace(/^0/, '');
+              const whatsappUrl = `https://wa.me/${internationalPhone}?text=${message}`;
 
               // Anti-scam gate: show warning once per device before opening WhatsApp
-              const hasSeenWarning = localStorage.getItem('wabuz_seen_warning');
+              const hasSeenWarning = typeof window !== 'undefined' ? localStorage.getItem('wabuz_seen_warning') : null;
               if (!hasSeenWarning) {
                 setPendingWhatsappUrl(whatsappUrl);
                 setShowAntiScam(true);
@@ -361,7 +366,10 @@ export default function ClientOrders() {
           <button
             onClick={() => {
               const phone = order.client_phone;
-              window.location.href = `tel:+225${phone.replace(/\D/g, '')}`;
+              // Transform phone to international Ivorian format: remove leading 0, prepend 225
+              const digitsOnly = phone.replace(/\D/g, '');
+              const internationalPhone = '225' + digitsOnly.replace(/^0/, '');
+              window.location.href = `tel:+${internationalPhone}`;
             }}
             className="flex items-center justify-center gap-2 py-2.5 px-4 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
           >
