@@ -104,6 +104,7 @@ interface AppState {
   // Client Order Actions
   addClientOrder: (order: ClientOrder) => void;
   confirmReceipt: (orderId: string) => void;
+  disputeOrder: (orderId: string) => void;
   setClientOrderFilter: (filter: 'all' | 'active' | 'delivered') => void;
   setConfirmingReceiptId: (id: string | null) => void;
   getActiveOrdersCount: () => number;
@@ -300,6 +301,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const order = get().clientOrders.find((o) => o.id === orderId);
     const supabaseId = order?.supabaseId;
 
+    // Block if the order is disputed — escrow must NOT be released
+    if (order?.status === 'disputed') {
+      console.warn('confirmReceipt: blocked — order is disputed, escrow cannot be released');
+      return;
+    }
+
     // 1) Update local state immediately for instant UI feedback
     set((state) => ({
       clientOrders: state.clientOrders.map((o) =>
@@ -349,6 +356,38 @@ export const useAppStore = create<AppState>((set, get) => ({
         orderId,
         '— mise à jour locale uniquement',
       );
+    }
+  },
+
+  disputeOrder: (orderId) => {
+    const order = get().clientOrders.find((o) => o.id === orderId);
+    const supabaseId = order?.supabaseId;
+
+    // 1) Update local state immediately
+    set((state) => ({
+      clientOrders: state.clientOrders.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              status: 'disputed' as const,
+            }
+          : o
+      ),
+    }));
+
+    // 2) Persist the change to Supabase
+    if (isSupabaseConfigured && supabaseId) {
+      supabase
+        .from('orders')
+        .update({ status: 'disputed' })
+        .eq('id', supabaseId)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Erreur lors du signalement de litige dans Supabase:', error);
+          } else {
+            console.log('Litige signalé dans Supabase pour la commande', supabaseId);
+          }
+        });
     }
   },
 

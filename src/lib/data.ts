@@ -61,7 +61,7 @@ export interface ClientOrder {
   vendorPhone: string;
   deliveryZone: string;
   totalAmount: number;
-  status: 'pending' | 'paid' | 'shipped' | 'delivered';
+  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'disputed';
   escrowStatus: 'held' | 'released';
   // Optional extension fields (not required by the simple ClientOrders component)
   paymentMethod?: 'wave' | 'orange_money';
