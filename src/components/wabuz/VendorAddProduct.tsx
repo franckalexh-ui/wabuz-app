@@ -52,58 +52,94 @@ export function VendorAddProduct() {
 
   const isEditing = !!editingProduct;
 
-  // ── Resolve store_id with robust hydration ──
-  // Start as null (unknown/hydrating), then resolve to real value or '' after mount.
-  const [resolvedStoreId, setResolvedStoreId] = useState<string | null>(null);
+  // ── Bulletproof Store ID Retrieval ──
+  // null = still hydrating, '' = definitely no store, string = real store_id
+  const [storeId, setStoreId] = useState<string | null>(null);
 
-  // After mount: read store_id from Zustand → localStorage → empty
+  // On mount, try EVERY possible source to find the store ID
   useEffect(() => {
-    let id = vendorStoreId;
-    if (!id && typeof window !== 'undefined') {
-      id = localStorage.getItem('wabuz_vendor_store_id') || '';
+    if (typeof window === 'undefined') return;
+
+    let id: string | null = null;
+
+    // Try 1: Direct localStorage key (most reliable)
+    id = localStorage.getItem('wabuz_vendor_store_id');
+
+    // Try 2: Maybe it's saved inside the vendor object
+    if (!id) {
+      const storeData = localStorage.getItem('wabuz_vendor');
+      if (storeData) {
+        try { id = JSON.parse(storeData).id || null; } catch { /* ignore */ }
+      }
     }
+
+    // Try 3: Zustand global state (may be hydrated from loadClientFromStorage)
+    if (!id && vendorStoreId) {
+      id = vendorStoreId;
+    }
+
+    // Try 4: If isStoreCreated is true but we still don't have the ID,
+    // attempt a Supabase lookup by phone (async, updates state later)
+    if (!id && isStoreCreated) {
+      const vendorData = localStorage.getItem('wabuz_vendor');
+      if (vendorData) {
+        try {
+          const { phone } = JSON.parse(vendorData);
+          if (phone && isSupabaseConfigured) {
+            supabase
+              .from('stores')
+              .select('id')
+              .eq('phone', phone)
+              .limit(1)
+              .then(({ data }) => {
+                if (data && data.length > 0 && data[0].id) {
+                  const recovered = String(data[0].id);
+                  console.log('[VendorAddProduct] Recovered store_id from Supabase:', recovered);
+                  setStoreId(recovered);
+                  setVendorStoreId(recovered);
+                  localStorage.setItem('wabuz_vendor_store_id', recovered);
+                }
+              });
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
+    console.log('[VendorAddProduct] Retrieved Store ID:', id, {
+      fromLocalStorage: !!localStorage.getItem('wabuz_vendor_store_id'),
+      fromVendorObject: !!(localStorage.getItem('wabuz_vendor') && (() => { try { return JSON.parse(localStorage.getItem('wabuz_vendor')!).id; } catch { return null; } })()),
+      fromZustand: !!vendorStoreId,
+    });
+
     if (id) {
-      setResolvedStoreId(id);
-      // Sync back to Zustand if it wasn't set
+      setStoreId(id);
+      // Sync back to Zustand + localStorage if they were missing it
       if (!vendorStoreId) {
         setVendorStoreId(id);
         setIsStoreCreated(true);
       }
+      if (!localStorage.getItem('wabuz_vendor_store_id')) {
+        localStorage.setItem('wabuz_vendor_store_id', id);
+      }
     } else {
-      setResolvedStoreId('');
+      setStoreId('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once after mount
+  }, []); // Run once on mount
 
-  // Keep resolved ID in sync if Zustand updates later
+  // Keep in sync if Zustand updates later (e.g. after loadClientFromStorage completes)
   useEffect(() => {
-    if (vendorStoreId) {
-      setResolvedStoreId(vendorStoreId);
+    if (vendorStoreId && !storeId) {
+      setStoreId(vendorStoreId);
     }
-  }, [vendorStoreId]);
+  }, [vendorStoreId, storeId]);
 
   // ── Should we show the "create store first" warning? ──
-  // Only AFTER hydration is complete (resolvedStoreId !== null)
-  // AND we confirmed there is no store_id anywhere.
-  const showNoStoreWarning = resolvedStoreId !== null && !resolvedStoreId;
+  // Only AFTER hydration is complete (storeId !== null) AND no ID found.
+  const showNoStoreWarning = storeId !== null && !storeId;
 
   // ── Does the vendor have a valid store? ──
-  // MUST have a real store_id (resolvedStoreId) — isStoreCreated alone is NOT
-  // sufficient because it can be true without a real Supabase store_id.
-  // During hydration (resolvedStoreId === null), hasStore stays false to
-  // prevent premature button enabling.
-  const hasStore = !!resolvedStoreId;
-
-  // Safety: if isStoreCreated is true but resolvedStoreId is still null/empty,
-  // try to resolve it from Zustand or localStorage immediately.
-  useEffect(() => {
-    if (isStoreCreated && !resolvedStoreId && typeof window !== 'undefined') {
-      const id = vendorStoreId || localStorage.getItem('wabuz_vendor_store_id') || '';
-      if (id) {
-        setResolvedStoreId(id);
-      }
-    }
-  }, [isStoreCreated, resolvedStoreId, vendorStoreId]);
+  const hasStore = !!storeId;
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -221,7 +257,7 @@ export function VendorAddProduct() {
     }
 
     // Require a valid store_id — vendor must create a store first
-    if (!resolvedStoreId) {
+    if (!storeId) {
       toast({
         title: 'Boutique requise',
         description: 'Veuillez d\'abord créer votre boutique avant d\'ajouter un produit',
@@ -230,8 +266,8 @@ export function VendorAddProduct() {
       return;
     }
 
-    // Use the resolved ID for the Supabase insert
-    const storeId = resolvedStoreId;
+    // Use the bulletproof storeId for the Supabase insert
+    const effectiveStoreId = storeId;
 
     setSubmitting(true);
     setUploadingImage(pendingFiles.length > 0);
@@ -301,7 +337,7 @@ export function VendorAddProduct() {
         .from('products')
         .insert([{
           name, description, price: priceNum, image_url: primaryImage,
-          category: categoryName, store_id: storeId,
+          category: categoryName, store_id: effectiveStoreId,
           stock_quantity: stockNum,
         }])
         .select();
@@ -317,7 +353,7 @@ export function VendorAddProduct() {
         id: insertedRow?.id ? String(insertedRow.id) : `p_new_${Date.now()}`,
         name, price: priceNum, category, description,
         images: allImages.length > 0 ? allImages : [primaryImage],
-        vendorId: storeId || resolvedStoreId || '',
+        vendorId: effectiveStoreId || '',
         vendorName: vendorStoreName || 'Ma Boutique',
         vendorRating: 5.0,
         vendorPhone: vendorPhone || '+225 07 00 00 00',
@@ -400,7 +436,7 @@ export function VendorAddProduct() {
   // Debug log: identify exactly which condition is failing
   if (typeof window !== 'undefined') {
     const debugInfo = {
-      hasStore, resolvedStoreId, isStoreCreated, vendorStoreId,
+      hasStore, storeId, isStoreCreated, vendorStoreId,
       name: !!name, price: !!price, category: !!category, description: !!description,
       hasImages, imagesLen: images.length, pendingFilesLen: pendingFiles.length,
       submitting, isButtonDisabled,
