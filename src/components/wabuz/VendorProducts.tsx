@@ -8,7 +8,7 @@ import { useState } from 'react';
 import { toast } from '@/hooks/use-toast';
 
 export function VendorProducts() {
-  const { vendorProducts, setView, deleteVendorProduct, toggleProductStock, selectProduct, setMode } = useAppStore();
+  const { vendorProducts, setView, deleteVendorProduct, toggleProductStock, selectProduct, setMode, setEditingProduct } = useAppStore();
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -49,7 +49,7 @@ export function VendorProducts() {
             <span className="text-xs text-gray-400">{vendorProducts.length} article{vendorProducts.length > 1 ? 's' : ''} en ligne</span>
           </div>
           <Button
-            onClick={() => setView('vendor-add-product')}
+            onClick={() => { setEditingProduct(null); setView('vendor-add-product'); }}
             className="bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm rounded-xl shadow-md shadow-orange-500/20"
           >
             <Plus className="w-4 h-4 mr-1" />
@@ -118,7 +118,12 @@ export function VendorProducts() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-semibold text-gray-900 line-clamp-1">{product.name}</h3>
-                  <p className="text-base font-bold text-orange-600 mt-0.5">{formatPrice(product.price)}</p>
+                  <p className="text-base font-bold text-orange-600 mt-0.5">
+                    {product.oldPrice && product.oldPrice > product.price && (
+                      <span className="text-xs text-gray-400 line-through mr-1">{formatPrice(product.oldPrice)}</span>
+                    )}
+                    {formatPrice(product.price)}
+                  </p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">
                       {catInfo?.icon} {catInfo?.name || product.category}
@@ -143,6 +148,16 @@ export function VendorProducts() {
                     title="Voir sur la boutique"
                   >
                     <Eye className="w-3.5 h-3.5 text-gray-500" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditingProduct(product);
+                      setView('vendor-add-product');
+                    }}
+                    className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center hover:bg-orange-100 transition-colors"
+                    title="Modifier"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-orange-500" />
                   </button>
                   <button
                     onClick={() => handleToggleStock(product.id, product.name, product.inStock)}
@@ -183,7 +198,7 @@ export function VendorProducts() {
             </p>
             {!searchQuery && (
               <Button
-                onClick={() => setView('vendor-add-product')}
+                onClick={() => { setEditingProduct(null); setView('vendor-add-product'); }}
                 className="bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm rounded-xl"
               >
                 <Plus className="w-4 h-4 mr-1" />

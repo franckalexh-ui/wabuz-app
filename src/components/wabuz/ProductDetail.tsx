@@ -124,6 +124,11 @@ export function ProductDetail({ product }: ProductDetailProps) {
       <div className="px-4 pt-4">
         {/* Price */}
         <div className="mb-3">
+          {product.oldPrice && product.oldPrice > product.price && (
+            <span className="text-sm text-gray-400 line-through mr-2">
+              {formatPrice(product.oldPrice)}
+            </span>
+          )}
           <span className="text-2xl font-extrabold text-orange-600">
             {formatPrice(product.price)}
           </span>

@@ -60,6 +60,11 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Price Badge */}
         <div className="absolute bottom-2 left-2 bg-white/95 backdrop-blur-sm rounded-lg px-2.5 py-1 shadow-md">
+          {product.oldPrice && product.oldPrice > product.price && (
+            <span className="text-[10px] text-gray-400 line-through mr-1">
+              {formatPrice(product.oldPrice)}
+            </span>
+          )}
           <span className="text-xs font-bold text-orange-600">
             {formatPrice(product.price)}
           </span>

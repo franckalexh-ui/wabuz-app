@@ -16,6 +16,7 @@ import {
   Package,
   Loader2,
   RefreshCw,
+  Pencil,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useCallback } from 'react';
@@ -38,6 +39,8 @@ export function VendorStore() {
     addVendorProduct,
     setVendorStoreId,
     setIsStoreCreated,
+    setEditingProduct,
+    setView,
   } = useAppStore();
 
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -98,6 +101,7 @@ export function VendorStore() {
         id: String(p.id),
         name: p.name,
         price: p.price,
+        oldPrice: p.old_price ?? null,
         category: p.category || '',
         description: p.description || '',
         images: p.image_url ? [p.image_url] : [],
@@ -122,10 +126,16 @@ export function VendorStore() {
   // Always use Supabase-fetched products — no dummy fallback
   const displayProducts = storeProducts;
 
-  const handleDelete = (productId: string, productName: string) => {
+  const handleDelete = async (productId: string, productName: string) => {
+    // Delete from Supabase
+    if (isSupabaseConfigured) {
+      await supabase.from('products').delete().eq('id', productId);
+    }
     deleteVendorProduct(productId);
     setDeleteConfirmId(null);
     toast({ title: 'Produit supprimé', description: `${productName} a été retiré de votre boutique` });
+    // Refresh product list
+    fetchProducts();
   };
 
   const handleToggleStock = (productId: string, productName: string, inStock: boolean) => {
@@ -284,6 +294,17 @@ export function VendorStore() {
                         <EyeOff className="w-3.5 h-3.5 text-gray-400" />
                       )}
                     </button>
+                    {/* Edit button (pencil) */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingProduct(product);
+                        setView('vendor-add-product');
+                      }}
+                      className="absolute top-2 left-10 w-7 h-7 rounded-lg bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-sm"
+                    >
+                      <Pencil className="w-3.5 h-3.5 text-orange-500" />
+                    </button>
                     {/* Delete button */}
                     <button
                       onClick={() => setDeleteConfirmId(isDeleting ? null : product.id)}
@@ -296,7 +317,10 @@ export function VendorStore() {
                       )}
                     </button>
                     {/* Price badge */}
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 pt-6">
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/50 to-transparent p-2 pt-6 flex items-center gap-1.5">
+                      {product.oldPrice && product.oldPrice > product.price && (
+                        <span className="text-[10px] text-white/60 line-through">{formatPrice(product.oldPrice)}</span>
+                      )}
                       <span className="text-xs font-bold text-white">{formatPrice(product.price)}</span>
                     </div>
                   </div>

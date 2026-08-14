@@ -55,6 +55,7 @@ interface AppState {
   newOrderCount: number; // unread orders count
   vendorRevenue: number;
   vendorStoreId: string; // real store_id from Supabase
+  editingProduct: Product | null; // product being edited (null = create mode)
 
   // Client Orders State
   clientOrders: ClientOrder[];
@@ -94,6 +95,7 @@ interface AppState {
   setVendorPendingCount: (count: number) => void;
   setIsStoreCreated: (created: boolean) => void;
   setVendorStoreId: (id: string) => void;
+  setEditingProduct: (product: Product | null) => void;
   clearNewOrderCount: () => void;
   simulateNewOrder: () => void;
   getCartTotal: () => number;
@@ -140,6 +142,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   newOrderCount: 1,
   vendorRevenue: 0,
   vendorStoreId: '',
+  editingProduct: null,
   clientOrders: [...MOCK_CLIENT_ORDERS],
   activeClientOrderFilter: 'all',
   confirmingReceiptId: null,
@@ -244,6 +247,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       localStorage.setItem('wabuz_vendor_store_id', id);
     }
   },
+
+  setEditingProduct: (product) => set({ editingProduct: product }),
 
   clearNewOrderCount: () => set({ newOrderCount: 0 }),
 

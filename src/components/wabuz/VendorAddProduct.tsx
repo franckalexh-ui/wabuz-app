@@ -2,8 +2,8 @@
 
 import { useAppStore } from '@/lib/store';
 import { CATEGORIES, formatPrice } from '@/lib/data';
-import { useState, useRef } from 'react';
-import { Camera, X, CheckCircle2, Sparkles, ImagePlus, Loader2, Upload } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Camera, X, CheckCircle2, Sparkles, ImagePlus, Loader2, Upload, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
 import { supabase, isSupabaseConfigured } from '@/lib/supabaseClient';
@@ -44,7 +44,12 @@ const SUGGESTED_IMAGES: Record<string, string[]> = {
 };
 
 export function VendorAddProduct() {
-  const { addVendorProduct, setView, vendorStoreName, vendorPhone, vendorWhatsapp, vendorStoreId } = useAppStore();
+  const {
+    addVendorProduct, setView, vendorStoreName, vendorPhone, vendorWhatsapp, vendorStoreId,
+    editingProduct, setEditingProduct,
+  } = useAppStore();
+
+  const isEditing = !!editingProduct;
 
   // ── Resolve store_id: Zustand store OR localStorage fallback ──
   const resolvedStoreId = vendorStoreId || (typeof window !== 'undefined' ? localStorage.getItem('wabuz_vendor_store_id') || '' : '');
@@ -66,6 +71,20 @@ export function VendorAddProduct() {
   // Selected files pending upload (for preview before submit)
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
+
+  // ── Pre-fill form when editing ──────────────────────────
+  useEffect(() => {
+    if (editingProduct) {
+      setName(editingProduct.name);
+      setPrice(String(editingProduct.price));
+      setStockQty(String(editingProduct.stockQuantity ?? 1));
+      // Find category id from the name (CATEGORIES uses id as key)
+      const catMatch = CATEGORIES.find((c) => c.name === editingProduct.category || c.id === editingProduct.category);
+      setCategory(catMatch?.id ?? editingProduct.category);
+      setDescription(editingProduct.description);
+      setImages(editingProduct.images || []);
+    }
+  }, [editingProduct]);
 
   const handleRemoveImage = (index: number) => {
     setImages(images.filter((_, i) => i !== index));
@@ -188,41 +207,78 @@ export function VendorAddProduct() {
     const priceNum = parseInt(price, 10);
     const stockNum = parseInt(stockQty, 10) || 1;
 
-    const { data, error } = await supabase
-      .from('products')
-      .insert([{
-        name, description, price: priceNum, image_url: primaryImage,
-        category: categoryName, store_id: resolvedStoreId,
-        stock_quantity: stockNum,
-      }])
-      .select();
+    if (isEditing && editingProduct) {
+      // ── UPDATE existing product ──────────────────────────
+      // Price markdown logic: if new price < old price, save old price to old_price
+      const originalPrice = editingProduct.price;
+      let oldPrice: number | null = null;
+      if (priceNum < originalPrice) {
+        oldPrice = originalPrice; // Save current price as old_price (markdown)
+      }
+      // If price increased or unchanged, old_price = null
 
-    if (error) {
-      toast({ title: "Erreur lors de l'ajout", description: error.message, variant: 'destructive' });
+      const { error } = await supabase
+        .from('products')
+        .update({
+          name,
+          description,
+          price: priceNum,
+          old_price: oldPrice,
+          image_url: primaryImage,
+          category: categoryName,
+          stock_quantity: stockNum,
+        })
+        .eq('id', editingProduct.id);
+
+      if (error) {
+        toast({ title: 'Erreur lors de la mise à jour', description: error.message, variant: 'destructive' });
+        setSubmitting(false);
+        return;
+      }
+
+      setCreatedProductName(name);
+      setShowSuccess(true);
       setSubmitting(false);
-      return;
+      setEditingProduct(null); // Clear edit mode
+      toast({ title: 'Produit mis à jour !', description: `${name} a été modifié avec succès` });
+    } else {
+      // ── INSERT new product ───────────────────────────────
+      const { data, error } = await supabase
+        .from('products')
+        .insert([{
+          name, description, price: priceNum, image_url: primaryImage,
+          category: categoryName, store_id: resolvedStoreId,
+          stock_quantity: stockNum,
+        }])
+        .select();
+
+      if (error) {
+        toast({ title: "Erreur lors de l'ajout", description: error.message, variant: 'destructive' });
+        setSubmitting(false);
+        return;
+      }
+
+      const insertedRow = Array.isArray(data) && data.length > 0 ? data[0] : null;
+      const product = {
+        id: insertedRow?.id ? String(insertedRow.id) : `p_new_${Date.now()}`,
+        name, price: priceNum, category, description,
+        images: allImages.length > 0 ? allImages : [primaryImage],
+        vendorId: 'v_current',
+        vendorName: vendorStoreName || 'Ma Boutique',
+        vendorRating: 5.0,
+        vendorPhone: vendorPhone || '+225 07 00 00 00',
+        vendorWhatsapp: vendorWhatsapp || '225070000000',
+        inStock: true,
+        stockQuantity: stockQty,
+        createdAt: new Date().toISOString(),
+      };
+
+      addVendorProduct(product);
+      setCreatedProductName(name);
+      setShowSuccess(true);
+      setSubmitting(false);
+      toast({ title: 'Produit ajouté avec succès !', description: `${name} est maintenant visible sur WABUZ` });
     }
-
-    const insertedRow = Array.isArray(data) && data.length > 0 ? data[0] : null;
-    const product = {
-      id: insertedRow?.id ? String(insertedRow.id) : `p_new_${Date.now()}`,
-      name, price: priceNum, category, description,
-      images: allImages.length > 0 ? allImages : [primaryImage],
-      vendorId: 'v_current',
-      vendorName: vendorStoreName || 'Ma Boutique',
-      vendorRating: 5.0,
-      vendorPhone: vendorPhone || '+225 07 00 00 00',
-      vendorWhatsapp: vendorWhatsapp || '225070000000',
-      inStock: true,
-      stockQuantity: stockQty,
-      createdAt: new Date().toISOString(),
-    };
-
-    addVendorProduct(product);
-    setCreatedProductName(name);
-    setShowSuccess(true);
-    setSubmitting(false);
-    toast({ title: 'Produit ajouté avec succès !', description: `${name} est maintenant visible sur WABUZ` });
   };
 
   // Success State
@@ -237,9 +293,11 @@ export function VendorAddProduct() {
             <Sparkles className="w-4 h-4 text-white" />
           </div>
         </div>
-        <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Produit publié !</h2>
+        <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
+          {isEditing ? 'Produit mis à jour !' : 'Produit publié !'}
+        </h2>
         <p className="text-sm text-gray-500 mb-2">
-          <span className="font-semibold text-gray-700">{createdProductName}</span> est maintenant visible
+          <span className="font-semibold text-gray-700">{createdProductName}</span> {isEditing ? 'a été modifié avec succès' : 'est maintenant visible'}
         </p>
         <p className="text-xs text-gray-400 mb-8">Les acheteurs à Abidjan peuvent le commander</p>
 
@@ -248,6 +306,7 @@ export function VendorAddProduct() {
             onClick={() => {
               // Revoke any remaining blob URLs to free memory
               pendingPreviews.forEach((url) => URL.revokeObjectURL(url));
+              setEditingProduct(null);
               setShowSuccess(false); setName(''); setPrice('');
               setStockQty('1');
               setCategory(''); setDescription(''); setImages([]);
@@ -258,7 +317,10 @@ export function VendorAddProduct() {
             Ajouter un autre produit
           </Button>
           <Button
-            onClick={() => setView('vendor-store')}
+            onClick={() => {
+              setEditingProduct(null);
+              setView('vendor-store');
+            }}
             variant="outline"
             className="w-full h-12 rounded-xl font-semibold"
           >
@@ -274,12 +336,19 @@ export function VendorAddProduct() {
   const totalImageCount = images.length + pendingPreviews.length;
   const primaryPreview = images[0] || pendingPreviews[0];
 
+  // Price markdown hint: show if editing and new price < original
+  const showPriceMarkdownHint = isEditing && editingProduct && priceNum > 0 && priceNum < editingProduct.price;
+
   return (
     <div className="pb-4">
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="px-4 pt-4 pb-2">
-        <h2 className="text-lg font-bold text-gray-900">Nouveau produit</h2>
-        <span className="text-xs text-gray-400">Remplissez les informations ci-dessous</span>
+        <h2 className="text-lg font-bold text-gray-900">
+          {isEditing ? 'Modifier le produit' : 'Nouveau produit'}
+        </h2>
+        <span className="text-xs text-gray-400">
+          {isEditing ? 'Modifiez les informations ci-dessous' : 'Remplissez les informations ci-dessous'}
+        </span>
       </div>
 
       {/* ── No store_id: friendly prompt instead of error ──────── */}
@@ -425,6 +494,17 @@ export function VendorAddProduct() {
               FCFA
             </span>
           </div>
+          {/* Price markdown hint */}
+          {showPriceMarkdownHint && (
+            <p className="text-[11px] text-emerald-600 mt-1 font-medium">
+              Ancien prix {formatPrice(editingProduct!.price)} sera affiché barré (promotion)
+            </p>
+          )}
+          {isEditing && editingProduct && priceNum > editingProduct.price && (
+            <p className="text-[11px] text-amber-600 mt-1 font-medium">
+              Prix augmenté — le prix barré sera supprimé
+            </p>
+          )}
         </div>
 
         {/* Stock Quantity */}
@@ -505,9 +585,17 @@ export function VendorAddProduct() {
               <p className="text-sm font-semibold text-gray-900 line-clamp-2">
                 {name || 'Nom du produit'}
               </p>
-              <p className="text-base font-bold text-orange-600 mt-0.5">
-                {priceNum > 0 ? formatPrice(priceNum) : '— FCFA'}
-              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                {/* Show strikethrough old price in preview when editing and markdown applies */}
+                {showPriceMarkdownHint && editingProduct && (
+                  <span className="text-xs text-gray-400 line-through">
+                    {formatPrice(editingProduct.price)}
+                  </span>
+                )}
+                <span className="text-base font-bold text-orange-600">
+                  {priceNum > 0 ? formatPrice(priceNum) : '— FCFA'}
+                </span>
+              </div>
               {category && (
                 <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-medium inline-block mt-1">
                   {CATEGORIES.find((c) => c.id === category)?.name}
@@ -528,19 +616,19 @@ export function VendorAddProduct() {
           {submitting ? (
             <>
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-              {uploadingImage ? "Téléchargement de l'image…" : 'Publication en cours…'}
+              {uploadingImage ? "Téléchargement de l'image…" : isEditing ? 'Mise à jour…' : 'Publication en cours…'}
             </>
           ) : (
             <>
-              <Upload className="w-4 h-4 mr-2" />
-              Publier le produit
+              {isEditing ? <Save className="w-4 h-4 mr-2" /> : <Upload className="w-4 h-4 mr-2" />}
+              {isEditing ? 'Mettre à jour' : 'Publier le produit'}
             </>
           )}
         </Button>
         <p className="text-[11px] text-gray-400 text-center mt-2">
           {pendingFiles.length > 0
             ? `${pendingFiles.length} image(s) seront téléchargées automatiquement`
-            : 'Votre produit sera visible immédiatement sur WABUZ'
+            : isEditing ? 'Les modifications seront visibles immédiatement' : 'Votre produit sera visible immédiatement sur WABUZ'
           }
         </p>
       </div>

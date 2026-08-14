@@ -4,6 +4,7 @@ export interface Product {
   id: string;
   name: string;
   price: number; // in FCFA
+  oldPrice?: number | null; // previous price before markdown (Facebook-style strikethrough)
   category: string;
   description: string;
   images: string[];

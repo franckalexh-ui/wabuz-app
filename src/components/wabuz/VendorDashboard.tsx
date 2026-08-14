@@ -50,7 +50,7 @@ interface SupabaseOrder {
 }
 
 export function VendorDashboard() {
-  const { isStoreCreated, vendorStoreName, vendorStoreId, setView, vendorProducts, newOrderCount, clearNewOrderCount, setVendorPendingCount, setIsStoreCreated, setVendorStoreId } = useAppStore();
+  const { isStoreCreated, vendorStoreName, vendorStoreId, setView, vendorProducts, newOrderCount, clearNewOrderCount, setVendorPendingCount, setIsStoreCreated, setVendorStoreId, setEditingProduct } = useAppStore();
 
   // ── Resolve store_id: Zustand store OR localStorage fallback ──
   const [resolvedStoreId, setResolvedStoreId] = useState<string>(() => {
@@ -235,7 +235,7 @@ export function VendorDashboard() {
       {/* ── Quick Add Product CTA ──────────────────────────────── */}
       <div className="px-4 mb-5">
         <button
-          onClick={() => setView('vendor-add-product')}
+          onClick={() => { setEditingProduct(null); setView('vendor-add-product'); }}
           className="w-full flex items-center gap-3 bg-orange-50 border-2 border-dashed border-orange-200 rounded-2xl p-4 hover:bg-orange-100 hover:border-orange-300 transition-all group"
         >
           <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform">

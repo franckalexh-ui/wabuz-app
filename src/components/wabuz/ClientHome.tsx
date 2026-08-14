@@ -15,6 +15,7 @@ function normalizeRow(row: any): Product {
     id: String(row.id),
     name: row.name ?? 'Sans nom',
     price: Number(row.price ?? 0),
+    oldPrice: row.old_price ?? null,
     category: row.category ?? '',
     description: row.description ?? '',
     images: Array.isArray(row.images)
@@ -349,6 +350,9 @@ export function ClientHome({ autoFocusSearch = false }: ClientHomeProps) {
                     {product.name}
                   </p>
                   <p className="text-xs font-bold text-orange-500">
+                    {product.oldPrice && product.oldPrice > product.price && (
+                      <span className="text-[10px] text-gray-400 line-through mr-1">{formatPrice(product.oldPrice)}</span>
+                    )}
                     {formatPrice(product.price)}
                   </p>
                 </button>

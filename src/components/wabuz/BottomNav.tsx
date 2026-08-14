@@ -13,7 +13,7 @@ interface NavItem {
 }
 
 export function BottomNav() {
-  const { mode, view, setView, newOrderCount, vendorPendingCount } = useAppStore();
+  const { mode, view, setView, newOrderCount, vendorPendingCount, setEditingProduct } = useAppStore();
 
   // ── Client Nav: Accueil, Recherche, Commandes, Profil ──────────
   const clientNavItems: NavItem[] = [
@@ -53,7 +53,11 @@ export function BottomNav() {
             return (
               <button
                 key={item.label}
-                onClick={() => setView(item.view)}
+                onClick={() => {
+                  // Clear editing product when navigating to add-product via nav
+                  if (item.view === 'vendor-add-product') setEditingProduct(null);
+                  setView(item.view);
+                }}
                 className={`relative flex flex-col items-center justify-end -mt-5 transition-all ${
                   isActive ? 'scale-105' : 'hover:scale-105'
                 }`}
