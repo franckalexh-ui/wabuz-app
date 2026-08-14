@@ -392,7 +392,7 @@ function StoreSetup() {
         .eq('name', name.trim())
         .limit(1);
 
-      setIsNameTaken(data && data.length > 0);
+      setIsNameTaken(!!(data && data.length > 0));
       setIsNameChecking(false);
     }, 500); // 500ms debounce
 
@@ -417,6 +417,7 @@ function StoreSetup() {
   const handleCreate = async () => {
     if (name && isWhatsappValid && category && !isNameTaken) {
       const phone = whatsapp.replace(/\D/g, '');
+      let storeIdFromSupabase: string | null = null;
 
       // Try inserting into Supabase to catch duplicate key (23505)
       if (isSupabaseConfigured) {
@@ -427,40 +428,86 @@ function StoreSetup() {
 
         if (error) {
           if (error.code === '23505') {
-            // Duplicate key — could be name OR phone
-            toast({
-              title: 'Doublon détecté',
-              description: 'Ce numéro de téléphone ou nom de boutique est déjà utilisé.',
-              variant: 'destructive',
-            });
-            // Check if it's the name that's taken
-            const { data: nameCheck } = await supabase
+            // Duplicate key — the vendor already has a store with this phone or name.
+            // Look up the existing store by phone to recover the real store_id.
+            const { data: existingStore } = await supabase
               .from('stores')
-              .select('name')
+              .select('id, name, phone, whatsapp, category')
+              .eq('phone', phone)
+              .limit(1);
+
+            if (existingStore && existingStore.length > 0 && existingStore[0].id) {
+              // Found the existing store — save its ID and proceed
+              storeIdFromSupabase = String(existingStore[0].id);
+              setVendorStoreId(storeIdFromSupabase);
+              console.log('Recovered existing store ID:', storeIdFromSupabase);
+
+              // Also update vendor profile from the existing store data
+              const store = existingStore[0];
+              setVendorStore(store.name || name.trim(), store.phone || phone, store.whatsapp || whatsapp, store.category || category);
+              setIsStoreCreated(true);
+              setView('vendor-dashboard');
+              toast({ title: 'Boutique retrouvée !', description: `Votre boutique "${store.name || name.trim()}" est déjà en ligne` });
+              return;
+            }
+
+            // Could not find by phone — try by name
+            const { data: nameMatch } = await supabase
+              .from('stores')
+              .select('id, name, phone, whatsapp, category')
               .eq('name', name.trim())
               .limit(1);
-            if (nameCheck && nameCheck.length > 0) {
-              setIsNameTaken(true);
-              setStep(0);
+
+            if (nameMatch && nameMatch.length > 0 && nameMatch[0].id) {
+              storeIdFromSupabase = String(nameMatch[0].id);
+              setVendorStoreId(storeIdFromSupabase);
+              console.log('Recovered existing store ID by name:', storeIdFromSupabase);
+
+              const store = nameMatch[0];
+              setVendorStore(store.name, store.phone || phone, store.whatsapp || whatsapp, store.category || category);
+              setIsStoreCreated(true);
+              setView('vendor-dashboard');
+              toast({ title: 'Boutique retrouvée !', description: `Votre boutique "${store.name}" est déjà en ligne` });
+              return;
             }
+
+            // Truly cannot recover — show error
+            toast({
+              title: 'Doublon détecté',
+              description: 'Ce numéro ou nom est déjà utilisé. Essayez un autre numéro WhatsApp.',
+              variant: 'destructive',
+            });
+            setIsNameTaken(true);
+            setStep(0);
             return;
           }
-          // Other errors — still proceed locally
+          // Other errors — still proceed locally (offline mode)
           console.warn('Store insert error (non-duplicate):', error.message);
         }
 
         // Save the real store_id from Supabase
         if (data && Array.isArray(data) && data.length > 0 && data[0].id) {
-          const storeId = String(data[0].id);
-          setVendorStoreId(storeId);
-          console.log('Store created with ID:', storeId);
+          storeIdFromSupabase = String(data[0].id);
+          setVendorStoreId(storeIdFromSupabase);
+          console.log('Store created with ID:', storeIdFromSupabase);
         }
       }
 
-      setVendorStore(name.trim(), phone, whatsapp, category);
-      setIsStoreCreated(true);
-      setView('vendor-dashboard');
-      toast({ title: 'Boutique créée !', description: `${name} est maintenant en ligne` });
+      // Guard: only set isStoreCreated if we have a real store_id
+      // (from Supabase insert success OR Supabase not configured = offline mode)
+      if (storeIdFromSupabase || !isSupabaseConfigured) {
+        setVendorStore(name.trim(), phone, whatsapp, category);
+        setIsStoreCreated(true);
+        setView('vendor-dashboard');
+        toast({ title: 'Boutique créée !', description: `${name} est maintenant en ligne` });
+      } else {
+        // Supabase is configured but we failed to get a store_id — this is an error
+        toast({
+          title: 'Erreur de création',
+          description: 'Impossible de créer la boutique. Vérifiez votre connexion et réessayez.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 

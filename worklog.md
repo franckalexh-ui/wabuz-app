@@ -310,3 +310,27 @@ Stage Summary:
 - Next step would be to add a vendor-side "Expédier" action that updates `status: 'paid' → 'shipped'` in Supabase, so the timeline (Payé → Expédié → Livré) becomes meaningful
 
 
+---
+Task ID: 1
+Agent: main
+Task: Fix "Boutique requise" Error — Trace and Fix Store ID Lifecycle
+
+Work Log:
+- Traced the full store_id lifecycle: StoreSetup → store.ts → localStorage → VendorAddProduct
+- Identified ROOT CAUSE: `hasStore = !!(resolvedStoreId || isStoreCreated)` — isStoreCreated could be true without a real store_id, enabling the button but causing "Boutique requise" on submit
+- Identified Bug #2: StoreSetup handleCreate on 23505 duplicate error would `return` without recovering the existing store's ID from Supabase — vendor stuck forever
+- Identified Bug #3: On non-23505 Supabase insert error, code fell through and set isStoreCreated=true without any store_id
+- Identified Bug #4: loadClientFromStorage set isStoreCreated=true from wabuz_vendor localStorage even when wabuz_vendor_store_id was missing
+- Identified Bug #5: Dummy ID 'v_current' used in store.ts and VendorAddProduct.tsx
+- Fixed StoreSetup.handleCreate: on 23505, look up existing store by phone→name to recover store_id; guard setIsStoreCreated with storeIdFromSupabase check
+- Fixed VendorAddProduct: hasStore = !!resolvedStoreId (requires real ID, not just isStoreCreated flag); vendorId uses real storeId
+- Fixed store.ts loadClientFromStorage: isStoreCreated only set true when store_id exists; added Supabase recovery lookup by phone when vendor profile exists but store_id missing
+- Removed all 'v_current' dummy IDs across app
+- Fixed pre-existing TS errors: setIsNameTaken boolean|null, stockQuantity string→number
+
+Stage Summary:
+- "Boutique requise" error now only fires when there truly is no store_id anywhere
+- Duplicate store creation (23505) now recovers existing store_id and lets vendor proceed
+- isStoreCreated flag can no longer be true without a real store_id backing it
+- Store ID flows correctly: Supabase insert → setVendorStoreId (Zustand + localStorage) → loadClientFromStorage on refresh → resolvedStoreId in all components
+- Build passes successfully

@@ -265,7 +265,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       productName: randomProduct.name,
       productImage: randomProduct.images[0],
       buyerPhone: `+225 0${Math.floor(Math.random() * 9) + 1} ${Math.floor(Math.random() * 90 + 10)} ${Math.floor(Math.random() * 90 + 10)} ${Math.floor(Math.random() * 90 + 10)}`,
-      vendorId: 'v_current',
+      vendorId: get().vendorStoreId || '',
       vendorName: get().vendorStoreName || 'Ma Boutique',
       quantity: qty,
       totalPrice: randomProduct.price * qty + DELIVERY_FEE,
@@ -410,17 +410,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       // Invalid localStorage data — ignore
     }
 
-    // Also load vendor store_id from localStorage if available
+    // Load vendor store_id from localStorage
+    let hasStoreId = false;
     try {
       const vendorStoreId = localStorage.getItem('wabuz_vendor_store_id');
       if (vendorStoreId) {
         set({ vendorStoreId, isStoreCreated: true });
+        hasStoreId = true;
       }
     } catch {
       // ignore
     }
 
-    // Also load vendor profile from localStorage
+    // Load vendor profile from localStorage
     try {
       const vendorData = localStorage.getItem('wabuz_vendor');
       if (vendorData) {
@@ -431,8 +433,30 @@ export const useAppStore = create<AppState>((set, get) => ({
             vendorPhone: phone || '',
             vendorWhatsapp: whatsapp || '',
             vendorCategory: category || '',
-            isStoreCreated: true,
+            // Only set isStoreCreated if we also have a real store_id.
+            // If store_id is missing, the vendor profile exists but the
+            // store was not fully created in Supabase — we must NOT
+            // pretend the store is ready.
+            isStoreCreated: hasStoreId,
           });
+
+          // Recovery: vendor profile exists but store_id is missing —
+          // try to look it up from Supabase by phone number.
+          if (!hasStoreId && isSupabaseConfigured && phone) {
+            supabase
+              .from('stores')
+              .select('id')
+              .eq('phone', phone)
+              .limit(1)
+              .then(({ data }) => {
+                if (data && data.length > 0 && data[0].id) {
+                  const recoveredId = String(data[0].id);
+                  set({ vendorStoreId: recoveredId, isStoreCreated: true });
+                  localStorage.setItem('wabuz_vendor_store_id', recoveredId);
+                  console.log('[loadClientFromStorage] Recovered store_id from Supabase:', recoveredId);
+                }
+              });
+          }
         }
       }
     } catch {

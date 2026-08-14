@@ -85,12 +85,14 @@ export function VendorAddProduct() {
   // ── Should we show the "create store first" warning? ──
   // Only AFTER hydration is complete (resolvedStoreId !== null)
   // AND we confirmed there is no store_id anywhere.
-  const showNoStoreWarning = resolvedStoreId !== null && !resolvedStoreId && !isStoreCreated;
+  const showNoStoreWarning = resolvedStoreId !== null && !resolvedStoreId;
 
   // ── Does the vendor have a valid store? ──
-  // Combine resolvedStoreId AND isStoreCreated for maximum robustness.
-  // isStoreCreated is set by loadClientFromStorage() on app init.
-  const hasStore = !!(resolvedStoreId || isStoreCreated);
+  // MUST have a real store_id (resolvedStoreId) — isStoreCreated alone is NOT
+  // sufficient because it can be true without a real Supabase store_id.
+  // During hydration (resolvedStoreId === null), hasStore stays false to
+  // prevent premature button enabling.
+  const hasStore = !!resolvedStoreId;
 
   // Safety: if isStoreCreated is true but resolvedStoreId is still null/empty,
   // try to resolve it from Zustand or localStorage immediately.
@@ -315,13 +317,13 @@ export function VendorAddProduct() {
         id: insertedRow?.id ? String(insertedRow.id) : `p_new_${Date.now()}`,
         name, price: priceNum, category, description,
         images: allImages.length > 0 ? allImages : [primaryImage],
-        vendorId: 'v_current',
+        vendorId: storeId || resolvedStoreId || '',
         vendorName: vendorStoreName || 'Ma Boutique',
         vendorRating: 5.0,
         vendorPhone: vendorPhone || '+225 07 00 00 00',
         vendorWhatsapp: vendorWhatsapp || '225070000000',
         inStock: true,
-        stockQuantity: stockQty,
+        stockQuantity: parseInt(stockQty, 10) || 1,
         createdAt: new Date().toISOString(),
       };
 
