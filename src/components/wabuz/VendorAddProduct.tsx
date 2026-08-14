@@ -47,17 +47,16 @@ export function VendorAddProduct() {
   const {
     addVendorProduct, setView, vendorStoreName, vendorPhone, vendorWhatsapp, vendorStoreId,
     editingProduct, setEditingProduct, setVendorStoreId, setIsStoreCreated,
+    isStoreCreated,
   } = useAppStore();
 
   const isEditing = !!editingProduct;
 
-  // ── Resolve store_id with proper hydration (same pattern as VendorStore) ──
-  // SSR/hydration: window is unavailable and Zustand may not be hydrated yet.
-  // Use useState + useEffect to read localStorage after mount.
-  const [resolvedStoreId, setResolvedStoreId] = useState<string>('');
-  const [hydrated, setHydrated] = useState(false);
+  // ── Resolve store_id with robust hydration ──
+  // Start as null (unknown/hydrating), then resolve to real value or '' after mount.
+  const [resolvedStoreId, setResolvedStoreId] = useState<string | null>(null);
 
-  // After mount: read store_id from Zustand or localStorage
+  // After mount: read store_id from Zustand → localStorage → empty
   useEffect(() => {
     let id = vendorStoreId;
     if (!id && typeof window !== 'undefined') {
@@ -70,8 +69,9 @@ export function VendorAddProduct() {
         setVendorStoreId(id);
         setIsStoreCreated(true);
       }
+    } else {
+      setResolvedStoreId('');
     }
-    setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Run once after mount
 
@@ -81,6 +81,11 @@ export function VendorAddProduct() {
       setResolvedStoreId(vendorStoreId);
     }
   }, [vendorStoreId]);
+
+  // ── Should we show the "create store first" warning? ──
+  // Only AFTER hydration is complete (resolvedStoreId !== null)
+  // AND we confirmed there is no store_id anywhere.
+  const showNoStoreWarning = resolvedStoreId !== null && !resolvedStoreId && !isStoreCreated;
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -207,6 +212,9 @@ export function VendorAddProduct() {
       return;
     }
 
+    // Use the resolved ID for the Supabase insert
+    const storeId = resolvedStoreId;
+
     setSubmitting(true);
     setUploadingImage(pendingFiles.length > 0);
 
@@ -275,7 +283,7 @@ export function VendorAddProduct() {
         .from('products')
         .insert([{
           name, description, price: priceNum, image_url: primaryImage,
-          category: categoryName, store_id: resolvedStoreId,
+          category: categoryName, store_id: storeId,
           stock_quantity: stockNum,
         }])
         .select();
@@ -379,8 +387,8 @@ export function VendorAddProduct() {
         </span>
       </div>
 
-      {/* ── No store_id: friendly prompt instead of error (only after hydration) ── */}
-      {hydrated && !resolvedStoreId && (
+      {/* ── No store_id: friendly prompt (only after hydration confirmed no store) ── */}
+      {showNoStoreWarning && (
         <div className="mx-4 mt-2 rounded-2xl bg-gray-50 border border-gray-100 p-4 text-center">
           <p className="text-sm font-medium text-gray-600">Créez d'abord votre boutique</p>
           <p className="text-xs text-gray-400 mt-0.5">Vous pourrez ensuite ajouter vos produits.</p>
