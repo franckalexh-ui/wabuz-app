@@ -46,13 +46,43 @@ const SUGGESTED_IMAGES: Record<string, string[]> = {
 export function VendorAddProduct() {
   const {
     addVendorProduct, setView, vendorStoreName, vendorPhone, vendorWhatsapp, vendorStoreId,
-    editingProduct, setEditingProduct,
+    editingProduct, setEditingProduct, setVendorStoreId, setIsStoreCreated,
   } = useAppStore();
 
   const isEditing = !!editingProduct;
 
-  // ── Resolve store_id: Zustand store OR localStorage fallback ──
-  const resolvedStoreId = vendorStoreId || (typeof window !== 'undefined' ? localStorage.getItem('wabuz_vendor_store_id') || '' : '');
+  // ── Resolve store_id with proper hydration (same pattern as VendorStore) ──
+  // SSR/hydration: window is unavailable and Zustand may not be hydrated yet.
+  // Use useState + useEffect to read localStorage after mount.
+  const [resolvedStoreId, setResolvedStoreId] = useState<string>(() => {
+    // Priority: Zustand state > localStorage
+    if (vendorStoreId) return vendorStoreId;
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('wabuz_vendor_store_id') || '';
+    }
+    return '';
+  });
+
+  // Keep resolved ID in sync if Zustand updates later
+  useEffect(() => {
+    if (vendorStoreId) {
+      setResolvedStoreId(vendorStoreId);
+    }
+  }, [vendorStoreId]);
+
+  // Hydration guard: after mount, if resolvedStoreId is still empty,
+  // read localStorage and sync back to Zustand so all components see the store_id.
+  useEffect(() => {
+    if (!resolvedStoreId && typeof window !== 'undefined') {
+      const stored = localStorage.getItem('wabuz_vendor_store_id');
+      if (stored) {
+        setResolvedStoreId(stored);
+        setVendorStoreId(stored);
+        setIsStoreCreated(true);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once after mount
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
