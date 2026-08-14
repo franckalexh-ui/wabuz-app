@@ -54,14 +54,26 @@ export function VendorAddProduct() {
   // ── Resolve store_id with proper hydration (same pattern as VendorStore) ──
   // SSR/hydration: window is unavailable and Zustand may not be hydrated yet.
   // Use useState + useEffect to read localStorage after mount.
-  const [resolvedStoreId, setResolvedStoreId] = useState<string>(() => {
-    // Priority: Zustand state > localStorage
-    if (vendorStoreId) return vendorStoreId;
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('wabuz_vendor_store_id') || '';
+  const [resolvedStoreId, setResolvedStoreId] = useState<string>('');
+  const [hydrated, setHydrated] = useState(false);
+
+  // After mount: read store_id from Zustand or localStorage
+  useEffect(() => {
+    let id = vendorStoreId;
+    if (!id && typeof window !== 'undefined') {
+      id = localStorage.getItem('wabuz_vendor_store_id') || '';
     }
-    return '';
-  });
+    if (id) {
+      setResolvedStoreId(id);
+      // Sync back to Zustand if it wasn't set
+      if (!vendorStoreId) {
+        setVendorStoreId(id);
+        setIsStoreCreated(true);
+      }
+    }
+    setHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run once after mount
 
   // Keep resolved ID in sync if Zustand updates later
   useEffect(() => {
@@ -69,20 +81,6 @@ export function VendorAddProduct() {
       setResolvedStoreId(vendorStoreId);
     }
   }, [vendorStoreId]);
-
-  // Hydration guard: after mount, if resolvedStoreId is still empty,
-  // read localStorage and sync back to Zustand so all components see the store_id.
-  useEffect(() => {
-    if (!resolvedStoreId && typeof window !== 'undefined') {
-      const stored = localStorage.getItem('wabuz_vendor_store_id');
-      if (stored) {
-        setResolvedStoreId(stored);
-        setVendorStoreId(stored);
-        setIsStoreCreated(true);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run once after mount
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
@@ -381,8 +379,8 @@ export function VendorAddProduct() {
         </span>
       </div>
 
-      {/* ── No store_id: friendly prompt instead of error ──────── */}
-      {!resolvedStoreId && (
+      {/* ── No store_id: friendly prompt instead of error (only after hydration) ── */}
+      {hydrated && !resolvedStoreId && (
         <div className="mx-4 mt-2 rounded-2xl bg-gray-50 border border-gray-100 p-4 text-center">
           <p className="text-sm font-medium text-gray-600">Créez d'abord votre boutique</p>
           <p className="text-xs text-gray-400 mt-0.5">Vous pourrez ensuite ajouter vos produits.</p>
