@@ -416,38 +416,71 @@ function StoreSetup() {
 
   const handleCreate = async () => {
     if (name && isWhatsappValid && category && !isNameTaken) {
-      const phone = whatsapp.replace(/\D/g, '');
+      // ── Clean phone number: exactly 10 digits, strip +225 if present ──
+      const rawDigits = whatsapp.replace(/\D/g, ''); // Remove all non-digits
+      let cleanPhone = rawDigits;
+      // If user typed +225 prefix (e.g. 22507XXXXXXXX = 13 digits), strip the 225
+      if (cleanPhone.length === 13 && cleanPhone.startsWith('225')) {
+        cleanPhone = cleanPhone.slice(3); // Now 10 digits: 07XXXXXXXX
+      }
+      // Validate: must be exactly 10 digits
+      if (cleanPhone.length !== 10) {
+        toast({
+          title: 'Numéro invalide',
+          description: `Le numéro doit contenir 10 chiffres (reçu: ${cleanPhone.length}). Format: 07XXXXXXXX`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Ensure name is a non-empty string
+      const storeName = (name || '').trim();
+      if (!storeName) {
+        toast({ title: 'Nom requis', description: 'Le nom de la boutique est obligatoire', variant: 'destructive' });
+        return;
+      }
+
       let storeIdFromSupabase: string | null = null;
 
-      // Try inserting into Supabase to catch duplicate key (23505)
+      // ── Insert into Supabase ──
       if (isSupabaseConfigured) {
+        const insertPayload = {
+          name: storeName,
+          phone: cleanPhone,
+          whatsapp: cleanPhone,
+          category: category || 'autre',
+          whatsapp_link: `https://wa.me/225${cleanPhone}`,
+        };
+
+        console.log('[StoreSetup] Inserting store:', insertPayload);
+
         const { data, error } = await supabase
           .from('stores')
-          .insert([{ name: name.trim(), phone, whatsapp, category }])
-          .select('id');
+          .insert([insertPayload])
+          .select(); // .select() returns the inserted row with its new ID
 
         if (error) {
+          console.error('[StoreSetup] Supabase Insert Error:', error);
+
           if (error.code === '23505') {
             // Duplicate key — the vendor already has a store with this phone or name.
             // Look up the existing store by phone to recover the real store_id.
             const { data: existingStore } = await supabase
               .from('stores')
               .select('id, name, phone, whatsapp, category')
-              .eq('phone', phone)
+              .eq('phone', cleanPhone)
               .limit(1);
 
             if (existingStore && existingStore.length > 0 && existingStore[0].id) {
-              // Found the existing store — save its ID and proceed
               storeIdFromSupabase = String(existingStore[0].id);
               setVendorStoreId(storeIdFromSupabase);
-              console.log('Recovered existing store ID:', storeIdFromSupabase);
+              console.log('[StoreSetup] Recovered existing store ID:', storeIdFromSupabase);
 
-              // Also update vendor profile from the existing store data
               const store = existingStore[0];
-              setVendorStore(store.name || name.trim(), store.phone || phone, store.whatsapp || whatsapp, store.category || category);
+              setVendorStore(store.name || storeName, store.phone || cleanPhone, store.whatsapp || cleanPhone, store.category || category);
               setIsStoreCreated(true);
               setView('vendor-dashboard');
-              toast({ title: 'Boutique retrouvée !', description: `Votre boutique "${store.name || name.trim()}" est déjà en ligne` });
+              toast({ title: 'Boutique retrouvée !', description: `Votre boutique "${store.name || storeName}" est déjà en ligne` });
               return;
             }
 
@@ -455,16 +488,16 @@ function StoreSetup() {
             const { data: nameMatch } = await supabase
               .from('stores')
               .select('id, name, phone, whatsapp, category')
-              .eq('name', name.trim())
+              .eq('name', storeName)
               .limit(1);
 
             if (nameMatch && nameMatch.length > 0 && nameMatch[0].id) {
               storeIdFromSupabase = String(nameMatch[0].id);
               setVendorStoreId(storeIdFromSupabase);
-              console.log('Recovered existing store ID by name:', storeIdFromSupabase);
+              console.log('[StoreSetup] Recovered existing store ID by name:', storeIdFromSupabase);
 
               const store = nameMatch[0];
-              setVendorStore(store.name, store.phone || phone, store.whatsapp || whatsapp, store.category || category);
+              setVendorStore(store.name, store.phone || cleanPhone, store.whatsapp || cleanPhone, store.category || category);
               setIsStoreCreated(true);
               setView('vendor-dashboard');
               toast({ title: 'Boutique retrouvée !', description: `Votre boutique "${store.name}" est déjà en ligne` });
@@ -481,30 +514,47 @@ function StoreSetup() {
             setStep(0);
             return;
           }
-          // Other errors — still proceed locally (offline mode)
-          console.warn('Store insert error (non-duplicate):', error.message);
+
+          // Non-duplicate error — this is a REAL failure, don't proceed silently
+          console.error('[StoreSetup] Supabase Insert Error:', error);
+          toast({
+            title: 'Erreur Supabase',
+            description: error.message || 'Erreur inconnue lors de la création de la boutique',
+            variant: 'destructive',
+          });
+          alert('Erreur Supabase: ' + error.message);
+          // Do NOT proceed — the store was not created in the database
+          return;
         }
 
         // Save the real store_id from Supabase
         if (data && Array.isArray(data) && data.length > 0 && data[0].id) {
           storeIdFromSupabase = String(data[0].id);
           setVendorStoreId(storeIdFromSupabase);
-          console.log('Store created with ID:', storeIdFromSupabase);
+          console.log('[StoreSetup] Store created with ID:', storeIdFromSupabase);
+        } else {
+          // Insert succeeded but no data returned — shouldn't happen with .select()
+          console.error('[StoreSetup] Insert succeeded but no data returned:', data);
+          toast({
+            title: 'Erreur inattendue',
+            description: 'La boutique a été créée mais son ID est introuvable. Réessayez.',
+            variant: 'destructive',
+          });
+          return;
         }
       }
 
-      // Guard: only set isStoreCreated if we have a real store_id
-      // (from Supabase insert success OR Supabase not configured = offline mode)
+      // Proceed: we either have a real store_id from Supabase, or Supabase is not configured
       if (storeIdFromSupabase || !isSupabaseConfigured) {
-        setVendorStore(name.trim(), phone, whatsapp, category);
+        setVendorStore(storeName, cleanPhone, cleanPhone, category);
         setIsStoreCreated(true);
         setView('vendor-dashboard');
-        toast({ title: 'Boutique créée !', description: `${name} est maintenant en ligne` });
+        toast({ title: 'Boutique créée !', description: `${storeName} est maintenant en ligne` });
       } else {
-        // Supabase is configured but we failed to get a store_id — this is an error
+        // Supabase is configured but we failed to get a store_id
         toast({
           title: 'Erreur de création',
-          description: 'Impossible de créer la boutique. Vérifiez votre connexion et réessayez.',
+          description: 'Impossible de créer la boutique dans la base de données. Vérifiez votre connexion et réessayez.',
           variant: 'destructive',
         });
       }
